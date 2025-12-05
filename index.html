@@ -81,12 +81,12 @@
         <!-- Firebase 連線狀態與使用者 ID -->
         <div class="mt-4 p-3 mx-auto max-w-sm bg-sepia-brown/10 rounded-xl">
             <div class="text-xs text-left">
-                <p v-if="!firebaseInitialized || !isAuthReady" class="font-semibold text-red-700">
-                    載入中...
+                <p v-if="!firebaseInitialized || !isAuthReady" class="font-semibold text-gray-700">
+                    載入中... (初始化 Firebase)
                 </p>
                 <p v-else class="font-semibold" :class="userId ? 'text-green-700' : 'text-red-700'">
                     <span :class="userId ? 'text-green-700' : 'text-red-700'">
-                        {{ userId ? '✅ Firestore 連線成功 (已認證)' : '❌ Firestore 連線失敗 (權限不足)' }}
+                        {{ userId ? '✅ Firestore 連線成功 (已認證)' : '❌ Firestore 連線失敗 (配置或規則錯誤)' }}
                     </span>
                 </p>
                 <p class="mt-1 break-all">
@@ -349,35 +349,20 @@
     createApp({
         setup() {
             // ----------------------------------------------------
-            // 🔥🔥🔥  Canvas 環境變數處理與硬編碼備用配置  🔥🔥🔥
+            // 🔥🔥🔥  Canvas 環境變數處理  🔥🔥🔥
             // ----------------------------------------------------
             
-            // 您的硬編碼配置 (防止環境變數解析失敗)
-            const USER_FIREBASE_CONFIG = {
-                apiKey: "AIzaSyDhH3pTVHmMesGYRnLxXMSOAszXbSuA9fA",
-                authDomain: "kansaitripplanner.firebaseapp.com",
-                projectId: "kansaitripplanner",
-                storageBucket: "kansaitripplanner.firebasestorage.app",
-                messagingSenderId: "547034174320",
-                appId: "1:547034174320:web:fe6d1a655410fa951075b5",
-                measurementId: "G-Q3341W5VVY"
-            };
-
             // 1. 嘗試解析環境變數
             const envConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
             let firebaseConfig = {};
             try {
+                // 必須依賴於環境提供的配置，移除硬編碼 fallback 避免配置錯誤
                 firebaseConfig = JSON.parse(envConfigString);
             } catch (e) {
-                console.warn("解析環境變數 __firebase_config 失敗，將使用硬編碼配置作為 fallback。", e);
+                console.error("解析環境變數 __firebase_config 失敗: ", e);
+                // 這裡不使用 fallback，因為備用配置會導致 auth/configuration-not-found 錯誤
             }
 
-            // 2. 檢查解析結果。如果無效，則使用硬編碼配置。
-            if (!firebaseConfig || !firebaseConfig.apiKey) {
-                console.log("環境配置無效，已切換使用硬編碼 Firebase 配置。");
-                firebaseConfig = USER_FIREBASE_CONFIG;
-            }
-            
             // 取得其他環境變數
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // 應用程式 ID
 
@@ -577,11 +562,14 @@
                 firebaseInitialized.value = false;
                 isAuthReady.value = false; 
 
-                try {
-                    if (!firebaseConfig.apiKey) {
-                        throw new Error("配置錯誤: 遺失或無效的 apiKey。");
-                    }
+                // 檢查配置是否成功解析
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    console.error("Firebase 配置無效或無法從環境變數中解析。中止初始化。");
+                    isAuthReady.value = true; 
+                    return; 
+                }
 
+                try {
                     const app = initializeApp(firebaseConfig);
                     db = getFirestore(app);
                     auth = getAuth(app); // 取得 Auth 實例
@@ -604,11 +592,12 @@
                                     await signInWithCustomToken(auth, initialAuthToken);
                                     console.log("使用自定義 Token 登入成功。");
                                 } else {
+                                    // 這裡是上次錯誤發生的點，現在應使用有效的配置
                                     await signInAnonymously(auth);
                                     console.log("匿名登入成功。");
                                 }
                             } catch (authError) {
-                                console.error("Firebase 登入失敗:", authError);
+                                console.error("Firebase 登入失敗 (可能為 auth/operation-not-allowed 或配置錯誤):", authError);
                                 // 登入失敗，仍標記 Auth 檢查已完成，但 userId 會是 null
                                 isAuthReady.value = true;
                                 firebaseInitialized.value = true;
