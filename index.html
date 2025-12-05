@@ -322,12 +322,11 @@
     
     // 輔助函數：OpenWeatherMap 圖標轉換為 Emoji
     const getWeatherEmoji = (iconCode) => {
-        // ... (省略 getWeatherEmoji 邏輯，未變更)
         switch (iconCode) {
             case '01d': return '☀️';
             case '01n': return '🌙';
-            case '02d': return '🌤️';
-            case '02n': return '☁️';
+            case '02d':
+            case '02n': return '🌤️';
             case '03d':
             case '03n': return '☁️';
             case '04d':
@@ -360,7 +359,6 @@
                 firebaseConfig = JSON.parse(envConfigString);
             } catch (e) {
                 console.error("解析環境變數 __firebase_config 失敗: ", e);
-                // 這裡不使用 fallback，因為備用配置會導致 auth/configuration-not-found 錯誤
             }
 
             // 取得其他環境變數
@@ -562,14 +560,14 @@
                 firebaseInitialized.value = false;
                 isAuthReady.value = false; 
 
-                // 檢查配置是否成功解析
+                // 註: 移除嚴格的配置檢查和強制中止，讓 Firebase SDK 本身來處理配置錯誤。
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
-                    console.error("Firebase 配置無效或無法從環境變數中解析。中止初始化。");
-                    isAuthReady.value = true; 
-                    return; 
+                    console.warn("Firebase 配置可能無效或遺失 apiKey。嘗試繼續初始化流程，但服務可能無法連線。");
                 }
-
+                
                 try {
+                    // initializeApp 會根據 firebaseConfig 的內容進行初始化。
+                    // 如果配置無效 (例如 key 不對或欄位不齊)，會在這裡或後續的 getAuth/signIn 失敗。
                     const app = initializeApp(firebaseConfig);
                     db = getFirestore(app);
                     auth = getAuth(app); // 取得 Auth 實例
@@ -592,12 +590,12 @@
                                     await signInWithCustomToken(auth, initialAuthToken);
                                     console.log("使用自定義 Token 登入成功。");
                                 } else {
-                                    // 這裡是上次錯誤發生的點，現在應使用有效的配置
                                     await signInAnonymously(auth);
                                     console.log("匿名登入成功。");
                                 }
                             } catch (authError) {
-                                console.error("Firebase 登入失敗 (可能為 auth/operation-not-allowed 或配置錯誤):", authError);
+                                // 登入失敗通常是因為 auth/configuration-not-found 或 auth/operation-not-allowed
+                                console.error("Firebase 登入失敗 (配置或規則可能不正確):", authError);
                                 // 登入失敗，仍標記 Auth 檢查已完成，但 userId 會是 null
                                 isAuthReady.value = true;
                                 firebaseInitialized.value = true;
@@ -606,9 +604,10 @@
                     });
 
                 } catch (initError) {
-                    console.error("Firebase App 初始化失敗:", initError);
+                    // 捕獲 initializeApp 失敗 (例如，傳入的 JSON 完全無效)
+                    console.error("Firebase App 初始化失敗 (配置 JSON 結構錯誤):", initError);
                     firebaseInitialized.value = false; 
-                    isAuthReady.value = true; // 即使初始化失敗也要標記為準備好
+                    isAuthReady.value = true; 
                 }
             };
             // -------------------- End 強化初始化邏輯 --------------------
@@ -720,7 +719,6 @@
             
             // -------------------- 初始數據 --------------------
             const initializeItineraryData = () => {
-                // ... (省略 initializeItineraryData 邏輯，未變更)
                 return [
                     { id: 1, date: '2025-12-27', title: '抵達與姬路遊', items: [
                         { id: generateUUID(), time: '01:45 - 06:10', name: '香港 HKG → KIX (MM 68)', category: '航班', note: '領取行李', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 68' },
