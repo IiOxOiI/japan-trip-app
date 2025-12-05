@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>關西跨年豪華行程 (日系極簡風 - 硬編碼修復)</title>
+    <title>關西跨年豪華行程 (日系極簡風 - Auth Bypass)</title>
     <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Vue.js 3 CDN -->
@@ -84,12 +84,9 @@
                 連線中... 🌐
             </p>
             <div v-else class="text-xs text-sepia-brown text-left">
-                <!-- 根據 isTemporaryId 判斷連線狀態 -->
-                <p v-if="!isTemporaryId" class="font-semibold">
-                    ✅ <span class="text-green-700">即時同步已啟用 (已認證)</span>
-                </p>
-                <p v-else-if="firebaseInitialized" class="font-semibold text-orange-700">
-                    ⚠️ <span class="text-orange-700">非認證模式 (Auth 錯誤)</span>
+                <!-- 由於已移除認證，我們總是使用非認證狀態的警告 -->
+                <p v-if="firebaseInitialized" class="font-semibold text-orange-700">
+                    ⚠️ <span class="text-orange-700">Firestore 連線已啟用 (非認證模式)</span>
                 </p>
                 <p v-else class="font-semibold text-red-700">
                     ❌ <span class="text-red-700">連線失敗 (配置或初始化錯誤)</span>
@@ -302,14 +299,13 @@
 <script type="module">
     // 引入 Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    // 這次我們不需要 getAuth, signInAnonymously, signInWithCustomToken
     import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { createApp, ref, computed, onMounted } = Vue;
 
     // 輔助函數：生成 UUID
     function generateUUID() {
-        // 使用 crypto.randomUUID() 而非 Math.random() 確保唯一性
         return crypto.randomUUID();
     }
 
@@ -346,15 +342,15 @@
             }
             
             // 取得其他環境變數
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // 應用程式 ID
 
             let db = null;
-            let auth = null;
-            const userId = ref(null);
-            const isAuthReady = ref(false);
-            const isTemporaryId = ref(false); 
+            // 由於我們不再使用 Auth，我們直接生成一個臨時 ID
+            const userId = ref(generateUUID()); 
+            const isAuthReady = ref(false); // 在本版本中，這代表 Firebase 初始化是否完成
             const firebaseInitialized = ref(false); // 追蹤 Firebase 是否成功初始化
+            // isTemporaryId 在此處始終為 true，因為我們繞過了認證
+            const isTemporaryId = ref(true); 
 
             // -------------------- 數據狀態 --------------------
             const currentTab = ref('itinerary');
@@ -407,12 +403,10 @@
             };
 
             // 儲存/更新行程 (將整個行程物件寫入單一文件)
+            // 由於沒有 Auth，我們必須依賴 Firestore 規則允許無認證用戶寫入公共資料。
             const saveItineraryData = async () => {
-                if (!db || !userId.value) return;
-                
-                // 只有在 Firebase 成功初始化且不是臨時 ID 時才嘗試寫入
-                if (!firebaseInitialized.value || isTemporaryId.value) {
-                    console.warn("當前處於非雲端同步模式 (臨時 ID 或初始化失敗)，已阻止寫入 Firestore。");
+                if (!db || !firebaseInitialized.value) {
+                    console.warn("Firestore 未初始化或連線失敗，無法儲存資料。");
                     return;
                 }
 
@@ -420,13 +414,13 @@
                     await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
                     console.log("行程資料已成功同步到 Firestore!");
                 } catch (e) {
-                    console.error("同步行程資料到 Firestore 失敗: ", e);
+                    console.error("同步行程資料到 Firestore 失敗 (請檢查 Firestore 規則是否允許未認證用戶寫入公共路徑): ", e);
                 }
             };
 
             // 設置即時監聽器
-            const setupRealtimeListeners = (uid) => {
-                if (!db || !uid) return;
+            const setupRealtimeListeners = () => {
+                if (!db || !firebaseInitialized.value) return;
                 
                 const docRef = getItineraryDocRef();
                 
@@ -439,78 +433,43 @@
                         // 確保資料結構完整
                         if (!itinerary.value.days || itinerary.value.days.length === 0) {
                             itinerary.value.days = initializeItineraryData();
-                            if (!isTemporaryId.value) saveItineraryData(); // 成功登入後才寫入初始化資料
+                            saveItineraryData(); // 嘗試寫入初始化資料
                         }
                     } else {
                         // 文件不存在，寫入初始化資料
                         itinerary.value.days = initializeItineraryData();
-                        if (!isTemporaryId.value) saveItineraryData();
+                        saveItineraryData();
                     }
                 }, (error) => {
-                    console.error("監聽行程資料失敗 (可能是權限不足): ", error);
+                    console.error("監聽行程資料失敗 (可能是 Firestore 規則阻止了讀取): ", error);
                 });
             };
 
-            // -------------------- 強化初始化與認證邏輯 --------------------
-            const initFirebaseAndAuth = async () => {
+            // -------------------- 強化初始化邏輯 (移除 Auth) --------------------
+            const initFirebaseAndDatabase = async () => {
                 setLogLevel('Debug');
                 isAuthReady.value = false;
-                userId.value = null;
                 firebaseInitialized.value = false;
 
-                let currentUid = null;
-                isTemporaryId.value = false;
-
                 try {
-                    // 1. 嘗試初始化 Firebase 應用程式 (使用解析或備用配置)
+                    // 1. 嘗試初始化 Firebase 應用程式
                     if (!firebaseConfig.apiKey) {
-                         // 由於前面已經檢查過，這裡應該不會發生，但作為防護
                         throw new Error("配置錯誤: 遺失或無效的 apiKey。");
                     }
 
                     const app = initializeApp(firebaseConfig);
                     db = getFirestore(app);
-                    auth = getAuth(app); 
                     firebaseInitialized.value = true; // 應用程式初始化成功
 
-                    // 2. 嘗試認證
-                    try {
-                        if (initialAuthToken) {
-                            // 優先使用自訂令牌登入
-                            await signInWithCustomToken(auth, initialAuthToken);
-                            console.log("認證成功: 使用自訂令牌登入。");
-                        } else {
-                            // 退回到匿名登入
-                            await signInAnonymously(auth);
-                            console.log("認證成功: 匿名登入。");
-                        }
-                        
-                        currentUid = auth.currentUser.uid;
-                        isTemporaryId.value = false; // 已成功認證
-
-                    } catch (authError) {
-                        // 認證失敗
-                        console.error("Firebase Auth 認證失敗 (進入非認證模式):", authError);
-                        
-                        // 優雅降級處理：生成一個臨時 ID
-                        currentUid = generateUUID(); 
-                        isTemporaryId.value = true;
-                    }
-
-                    // 3. 設置 ID 和監聽器
-                    userId.value = currentUid; 
-                    setupRealtimeListeners(currentUid); 
+                    // 2. 設置監聽器
+                    setupRealtimeListeners(); 
 
                 } catch (initError) {
                     // 應用程式初始化失敗 (配置問題或網路問題)
                     console.error("Firebase App 初始化失敗:", initError);
-                    
-                    // 最差情況處理：確保 UI 不顯示 N/A
-                    userId.value = generateUUID(); 
-                    isTemporaryId.value = true;
                     firebaseInitialized.value = false; 
                 } finally {
-                    isAuthReady.value = true; // 無論成功或失敗，都標記為已完成初始化流程
+                    isAuthReady.value = true; // 標記為已完成初始化流程
                 }
             };
 
@@ -579,9 +538,8 @@
             const saveItineraryItem = () => {
                 if (!currentDay.value) return;
                 
-                // 非認證模式下阻止雲端儲存，但仍更新本地狀態
-                if (isTemporaryId.value || !firebaseInitialized.value) {
-                    console.warn("當前處於非雲端同步模式，新增/編輯操作僅適用於本地。");
+                if (!firebaseInitialized.value) {
+                    console.warn("Firestore 未連線，新增/編輯操作僅適用於本地。");
                 }
 
                 if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
@@ -599,17 +557,20 @@
                     // 新增項目
                     currentDay.value.items.push(form.value);
                     // 確保排序後再儲存
-                    currentDay.value.items.sort((a, b) => a.time.localeCompare(b.time));
+                    currentDay.value.items.sort((a, b) => {
+                        // 簡單的時間字串排序
+                        return a.time.localeCompare(b.time);
+                    });
                 }
 
-                saveItineraryData(); // 嘗試儲存到 Firestore (只有在成功認證後才會寫入)
+                saveItineraryData(); // 嘗試儲存到 Firestore
                 isItineraryModalOpen.value = false;
             };
 
             const deleteItineraryItem = () => {
                 if (currentDay.value && editingIndex.value !== null) {
-                    if (isTemporaryId.value || !firebaseInitialized.value) {
-                        console.warn("當前處於非雲端同步模式，刪除操作僅適用於本地。");
+                    if (!firebaseInitialized.value) {
+                        console.warn("Firestore 未連線，刪除操作僅適用於本地。");
                     }
                     currentDay.value.items.splice(editingIndex.value, 1);
                     saveItineraryData(); // 嘗試儲存到 Firestore
@@ -671,7 +632,7 @@
             // -------------------- 初始化 --------------------
             onMounted(() => {
                 // 呼叫初始化函數
-                initFirebaseAndAuth(); 
+                initFirebaseAndDatabase(); 
                 calculateExchange(); 
             });
 
@@ -698,7 +659,7 @@
                 openEditModal,
                 saveItineraryItem,
                 openConfirmDelete, 
-                // Firebase 狀態
+                // Firebase 狀態 (已移除 Auth)
                 userId,
                 isAuthReady,
                 isTemporaryId,
