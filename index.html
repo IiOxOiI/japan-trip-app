@@ -120,7 +120,7 @@
 
             <!-- 當日行程內容 -->
             <div v-if="currentDay">
-                <!-- -------------------- 即時天氣資訊 (取代模擬) -------------------- -->
+                <!-- -------------------- 即時天氣資訊 -------------------- -->
                 <div class="bg-white p-4 rounded-xl shadow-lg border border-soft-green mb-4 flex justify-between items-center transition duration-300">
                     <div class="flex items-center space-x-3">
                         <span class="text-3xl" v-html="weatherState.icon"></span>
@@ -302,14 +302,43 @@
 </div>
 
 <script type="module">
-    // 引入 Firebase SDK
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    // ADDED AUTH IMPORTS:
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // 引入 Firebase SDK (已更新至 v12.6.0)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
-    const { createApp, ref, computed, onMounted, watch } = Vue; // 引入 watch
+    const { createApp, ref, computed, onMounted, watch } = Vue; 
 
+    // ----------------------------------------------------
+    // 🔥🔥🔥  Canvas 環境變數與配置  🔥🔥🔥
+    // ----------------------------------------------------
+    
+    // 1. 取得 Canvas 應用程式 ID (MANDATORY)
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; 
+    
+    // 2. 取得 Canvas Firebase 配置 (MANDATORY)
+    const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+    let firebaseConfig;
+    try {
+        // 解析 Canvas 提供的 JSON 配置
+        firebaseConfig = JSON.parse(firebaseConfigString);
+    } catch (e) {
+        console.error("解析 __firebase_config 失敗，使用備用配置。");
+        // 備用配置（如果解析失敗）
+        firebaseConfig = { projectId: 'default-project' };
+    }
+    
+    // 3. 取得 Canvas 初始認證 Token (MANDATORY)
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+
+    let db = null;
+    let auth = null; 
+    const userId = ref(null); 
+    const firebaseInitialized = ref(false); 
+    const isAuthReady = ref(false); 
+
+    
     // -------------------- 常量 --------------------
     const OPENWEATHERMAP_API_KEY = "fbe62816684902d7d56067b95729927a";
     const JPY_TO_HKD_RATE = 0.052; // 模擬匯率
@@ -345,438 +374,409 @@
         }
     };
 
+    // -------------------- 數據狀態 --------------------
+    const currentTab = ref('itinerary');
+    const currentDayId = ref(1);
+
+    // Modal 狀態
+    const isItineraryModalOpen = ref(false);
+    const isEditing = ref(false);
+    const editingIndex = ref(null);
+
+    // 自定義確認 Modal 狀態
+    const isConfirmModalOpen = ref(false);
+    const confirmMessage = ref('');
+    const confirmAction = ref(null); 
+
+    // 表單數據
+    const form = ref({});
+
+    // 數據儲存狀態 (從 Firestore 載入)
+    const itinerary = ref({ days: [] }); 
+
+    // 匯率換算狀態
+    const jpyAmount = ref(10000);
+    const hkdAmount = ref(jpyAmount.value * JPY_TO_HKD_RATE);
+
+    // 天氣狀態
+    const weatherState = ref({
+        location: '載入中...', 
+        temp: '--', 
+        desc: '正在獲取天氣資訊...', 
+        icon: '☁️',
+        minMax: '',
+        error: null
+    });
+
+
+    // -------------------- 實時計算屬性 --------------------
+    const itineraryDays = computed(() => itinerary.value.days || []);
+
+    const currentDay = computed(() => {
+        return itineraryDays.value.find(day => day.id === currentDayId.value);
+    });
+
+    const filterCategory = ref('');
+    const filteredItems = computed(() => {
+        let items = currentDay.value ? currentDay.value.items : [];
+        if (filterCategory.value) {
+            items = items.filter(item => item.category === filterCategory.value);
+        }
+        return items;
+    });
+    
+    // 獲取當前選定日期的第一個行程項目所標記的城市
+    const targetCity = computed(() => {
+        if (currentDay.value && currentDay.value.items && currentDay.value.items.length > 0) {
+            const firstItemMapQuery = currentDay.value.items[0].mapQuery || '';
+            
+            // 嘗試從地圖查詢中推斷城市
+            const cityMatch = firstItemMapQuery.match(/(\w+)/);
+            if (cityMatch && ['姬路', '神戶', '大阪', 'KIX'].includes(cityMatch[1])) {
+                return cityMatch[1];
+            }
+            if (firstItemMapQuery.includes('KIX')) return 'Osaka'; 
+            return 'Osaka'; 
+        }
+        return 'Osaka';
+    });
+    
+    // -------------------- 天氣 API 核心功能 --------------------
+    async function fetchWeather(city, apiKey, maxRetries = 3) {
+        if (!city || city === 'Osaka' || city === '載入中...') return; 
+        
+        weatherState.value.location = `${city} (載入中...)`;
+        weatherState.value.temp = '--';
+        weatherState.value.desc = '正在獲取即時天氣...';
+        weatherState.value.error = null;
+
+        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric&lang=zh_tw`;
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API 錯誤: ${response.status} - ${errorData.message}`);
+                }
+
+                const data = await response.json();
+
+                if (data && data.main && data.weather && data.weather.length > 0) {
+                    const temp = Math.round(data.main.temp);
+                    const feelsLike = Math.round(data.main.feels_like);
+                    const minTemp = Math.round(data.main.temp_min);
+                    const maxTemp = Math.round(data.main.temp_max);
+                    const weatherDesc = data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1);
+                    const iconCode = data.weather[0].icon;
+                    
+                    weatherState.value.location = data.name || city; 
+                    weatherState.value.temp = temp;
+                    weatherState.value.desc = weatherDesc;
+                    weatherState.value.minMax = `體感 ${feelsLike}°C | ${minTemp}°C / ${maxTemp}°C`;
+                    weatherState.value.icon = getWeatherEmoji(iconCode);
+                    weatherState.value.error = null;
+                    
+                    return; // 成功，退出循環
+                } else {
+                    throw new Error("無法解析天氣數據或數據不完整。");
+                }
+            } catch (error) {
+                console.error(`天氣查詢嘗試 ${attempt + 1} 失敗:`, error.message);
+                weatherState.value.error = `查詢失敗: ${error.message}`;
+
+                if (attempt < maxRetries - 1) {
+                    // 指數退避延遲
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        // 所有嘗試都失敗
+        weatherState.value.location = `${city} (查詢失敗)`;
+        weatherState.value.temp = '--';
+        weatherState.value.desc = '無法取得最新天氣資訊。';
+        weatherState.value.minMax = '';
+        weatherState.value.icon = '❓';
+    }
+
+
+    // -------------------- Firebase 核心功能 --------------------
+    
+    // 取得 Firestore Document Reference (公共資料路徑)
+    const getItineraryDocRef = () => {
+        // 公共協作路徑: /artifacts/{appId}/public/data/itineraries/main-trip
+        return doc(db, `artifacts/${appId}/public/data/itineraries`, 'main-trip');
+    };
+
+    // 儲存/更新行程 (將整個行程物件寫入單一文件)
+    const saveItineraryData = async () => {
+        // 確保 DB 已初始化且用戶已認證
+        if (!db || !userId.value) {
+            console.warn("Firestore 未連線或用戶未認證，無法儲存資料。");
+            return;
+        }
+
+        try {
+            await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
+            console.log("行程資料已成功同步到 Firestore!");
+        } catch (e) {
+            console.error("同步行程資料到 Firestore 失敗: ", e);
+        }
+    };
+
+    // 設置即時監聽器
+    const setupRealtimeListeners = () => {
+            // 確保 DB 已初始化且用戶已認證
+        if (!db || !isAuthReady.value || !userId.value) {
+            console.log("等待認證完成或 DB 初始化...");
+            return;
+        }
+        
+        const docRef = getItineraryDocRef();
+        
+        // Firestore 監聽器
+        onSnapshot(docRef, (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                itinerary.value = data;
+                
+                // 確保資料結構完整
+                if (!itinerary.value.days || itinerary.value.days.length === 0) {
+                    itinerary.value.days = initializeItineraryData();
+                    saveItineraryData(); // 嘗試寫入初始化資料
+                }
+            } else {
+                // 文件不存在，寫入初始化資料
+                itinerary.value.days = initializeItineraryData();
+                saveItineraryData();
+            }
+        }, (error) => {
+            console.error("監聽行程資料失敗 (請檢查 Firestore 規則是否允許公共路徑讀取): ", error);
+        });
+    };
+
+    // -------------------- 強化初始化邏輯 (包含 Auth) --------------------
+    const initFirebaseAndDatabase = async () => {
+        setLogLevel('Debug');
+        firebaseInitialized.value = false;
+        isAuthReady.value = false; 
+
+        if (!firebaseConfig.apiKey && firebaseConfig.projectId !== 'default-project') {
+            console.warn("Firebase 配置缺少 apiKey。嘗試繼續初始化流程，但服務可能無法連線。");
+        }
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app); 
+            
+            // --- AUTHENTICATION LOGIC ---
+            
+            // 設置 Auth 狀態監聽器
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId.value = user.uid; // 設定真實的 UID
+                    isAuthReady.value = true;
+                    firebaseInitialized.value = true; // 標記 Firebase 初始化完成
+                    // 只有在認證完成且有用戶後，才設置 Firestore 監聽器
+                    setupRealtimeListeners(); 
+                } else {
+                    // 如果沒有用戶，嘗試匿名登入 (或使用自定義 Token)
+                    try {
+                            if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            console.log("使用自定義 Token 登入成功。");
+                        } else {
+                            await signInAnonymously(auth);
+                            console.log("匿名登入成功。");
+                        }
+                    } catch (authError) {
+                        // 登入失敗處理，即使失敗也要標記 Auth 檢查已完成
+                        console.error("Firebase 登入失敗 (配置或規則可能不正確):", authError);
+                        isAuthReady.value = true;
+                        firebaseInitialized.value = true;
+                    }
+                }
+            });
+
+        } catch (initError) {
+            // 捕獲 initializeApp 失敗
+            console.error("Firebase App 初始化失敗 (配置 JSON 結構錯誤):", initError);
+            firebaseInitialized.value = false; 
+            isAuthReady.value = true; 
+        }
+    };
+    // -------------------- End 強化初始化邏輯 --------------------
+
+    // -------------------- 方法 --------------------
+
+    // 樣式輔助方法
+    const tabClass = (tabName) => {
+        const base = 'p-2 rounded-full transition duration-200';
+        return currentTab.value === tabName
+            ? `${base} bg-soft-green text-sepia-brown`
+            : `${base} text-primary-text/60 hover:text-sepia-brown`;
+    };
+
+    // 日期輔助方法
+    const getDayOfWeek = (date) => new Date(date).toLocaleDateString('zh-TW', { weekday: 'short' });
+    const getDayOfMonth = (date) => new Date(date).getDate();
+
+    const selectDay = (dayId) => {
+        currentDayId.value = dayId;
+        filterCategory.value = ''; // 切換日期時重置分類
+    };
+
+    const getMapLink = (query) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
+    const calculateExchange = () => {
+        hkdAmount.value = jpyAmount.value * JPY_TO_HKD_RATE;
+    };
+
+    // -------------------- 自定義確認 Modal 邏輯 (取代 window.confirm) --------------------
+    const openConfirmModal = (message, action) => {
+        confirmMessage.value = message;
+        confirmAction.value = action;
+        isConfirmModalOpen.value = true;
+    };
+
+    const closeConfirmModal = () => {
+        isConfirmModalOpen.value = false;
+        confirmAction.value = null;
+    };
+
+    const executeConfirmAction = () => {
+        if (confirmAction.value) {
+            confirmAction.value();
+        }
+        closeConfirmModal();
+    };
+    
+    const openConfirmDelete = () => {
+        openConfirmModal('確定要刪除此行程嗎？此操作無法復原。', deleteItineraryItem);
+    };
+
+    // -------------------- 行程 CRUD --------------------
+    const openAddModal = () => {
+        form.value = { id: generateUUID(), name: '', time: '', category: categories[0], note: '', mapQuery: '', ticketPrice: null, travelTime: '30分鐘', travelModeIcon: '🚶' };
+        isEditing.value = false;
+        isItineraryModalOpen.value = true;
+    };
+
+    const openEditModal = (item, index) => {
+        form.value = { ...item }; // 複製當前項目
+        editingIndex.value = index;
+        isEditing.value = true;
+        isItineraryModalOpen.value = true;
+    };
+
+    const saveItineraryItem = () => {
+        if (!currentDay.value) return;
+        
+        if (!userId.value) {
+            console.warn("用戶未認證，無法儲存資料。");
+        }
+
+        if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
+        
+        // 模擬交通資訊 (非實時計算)
+        if (!form.value.travelTime || form.value.travelTime === '0分鐘') {
+            form.value.travelTime = '約 30 分鐘';
+            form.value.travelModeIcon = form.value.category === '住宿' ? '🚌' : '🚶';
+        }
+
+        if (isEditing.value) {
+            // 更新現有項目
+            currentDay.value.items[editingIndex.value] = form.value;
+        } else {
+            // 新增項目
+            currentDay.value.items.push(form.value);
+            // 確保排序後再儲存
+            currentDay.value.items.sort((a, b) => {
+                // 簡單的時間字串排序
+                return a.time.localeCompare(b.time);
+            });
+        }
+
+        saveItineraryData(); // 嘗試儲存到 Firestore
+        isItineraryModalOpen.value = false;
+    };
+
+    const deleteItineraryItem = () => {
+        if (currentDay.value && editingIndex.value !== null) {
+            if (!userId.value) {
+                console.warn("用戶未認證，無法刪除資料。");
+            }
+            currentDay.value.items.splice(editingIndex.value, 1);
+            saveItineraryData(); // 嘗試儲存到 Firestore
+            isItineraryModalOpen.value = false;
+        }
+    };
+    
+    // -------------------- 初始數據 --------------------
+    const initializeItineraryData = () => {
+        return [
+            { id: 1, date: '2025-12-27', title: '抵達與姬路遊', items: [
+                { id: generateUUID(), time: '01:45 - 06:10', name: '香港 HKG → KIX (MM 68)', category: '航班', note: '領取行李', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 68' },
+                { id: generateUUID(), time: '08:50 - 11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路', travelTime: '150分鐘', travelModeIcon: '🚌' },
+                { id: generateUUID(), time: '11:10 - 12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '14:00 - 17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '姬路', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
+                { id: generateUUID(), time: '19:30 onwards', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
+            ]},
+            { id: 2, date: '2025-12-28', title: '姬路深度遊', items: [
+                { id: generateUUID(), time: '09:00 - 12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '13:30 - 16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '姬路', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '18:30 onwards', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
+            ]},
+            { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', items: [
+                { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 $\rightarrow$ 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶', travelTime: '70分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '12:30 - 14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: '神戶', travelTime: '10分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '14:00 - 19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '19:00 - 20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶', travelTime: '20分鐘', travelModeIcon: '🚌' },
+            ]},
+            { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', items: [
+                { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 $\rightarrow$ 六甲山頂', category: '交通', note: 'JR $\rightarrow$ 巴士 $\rightarrow$ 纜車', mapQuery: '神戶', travelTime: '90分鐘', travelModeIcon: '🚌' },
+                { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 $\rightarrow$ 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '神戶', travelTime: '30分鐘', travelModeIcon: '🚠' },
+                { id: generateUUID(), time: '14:00 - 17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
+                { id: generateUUID(), time: '17:30 - 19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶', travelTime: '60分鐘', travelModeIcon: '🚌' },
+            ]},
+            { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', items: [
+                { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 $\rightarrow$ 淀屋橋', category: '交通', note: '阪神 $\rightarrow$ 地鐵', mapQuery: '大阪', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '大阪', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '大阪', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
+            ]},
+            { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', items: [
+                { id: generateUUID(), time: '02:00 - 06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
+                { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR $\rightarrow$ 地鐵', mapQuery: '大阪', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '10:00 - 16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '🛌' },
+                { id: generateUUID(), time: '16:00 - 18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '大阪', travelTime: '15分鐘', travelModeIcon: '🚶' },
+            ]},
+            { id: 7, date: '2026-01-02', title: '觀光與返程日', items: [
+                { id: generateUUID(), time: '09:30 - 12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
+                { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 $\rightarrow$ 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '大阪', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '14:30 - 18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 $\rightarrow$ KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚆' },
+                { id: generateUUID(), time: '21:05', name: 'KIX $\rightarrow$ 香港 HKG (MM 67)', category: '航班', note: '預留充足時間辦理手續', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 67' },
+            ]}
+        ];
+    };
+
+    // -------------------- 初始化 --------------------
     createApp({
         setup() {
-            // ----------------------------------------------------
-            // 🔥🔥🔥  Canvas 環境變數處理  🔥🔥🔥
-            // ----------------------------------------------------
-            
-            // 1. 嘗試解析環境變數
-            const envConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-            let firebaseConfig = {};
-            try {
-                // 必須依賴於環境提供的配置，移除硬編碼 fallback 避免配置錯誤
-                firebaseConfig = JSON.parse(envConfigString);
-            } catch (e) {
-                console.error("解析環境變數 __firebase_config 失敗: ", e);
-            }
-
-            // 取得其他環境變數
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // 應用程式 ID
-
-            let db = null;
-            let auth = null; // 初始化 Auth 實例
-            const userId = ref(null); // 追蹤真實的用戶 ID (UID)
-            const firebaseInitialized = ref(false); // 追蹤 Firebase 是否成功初始化
-            const isAuthReady = ref(false); // 新增: 追蹤認證狀態是否完成首次檢查
-
-            
-            // -------------------- 數據狀態 --------------------
-            const currentTab = ref('itinerary');
-            const currentDayId = ref(1);
-
-            // Modal 狀態
-            const isItineraryModalOpen = ref(false);
-            const isEditing = ref(false);
-            const editingIndex = ref(null);
-
-            // 自定義確認 Modal 狀態
-            const isConfirmModalOpen = ref(false);
-            const confirmMessage = ref('');
-            const confirmAction = ref(null); 
-
-            // 表單數據
-            const form = ref({});
-
-            // 數據儲存狀態 (從 Firestore 載入)
-            const itinerary = ref({ days: [] }); 
-
-            // 匯率換算狀態
-            const jpyAmount = ref(10000);
-            const hkdAmount = ref(jpyAmount.value * JPY_TO_HKD_RATE);
-
-            // -------------------- 新增天氣狀態 --------------------
-            const weatherState = ref({
-                location: '載入中...', 
-                temp: '--', 
-                desc: '正在獲取天氣資訊...', 
-                icon: '☁️',
-                minMax: '',
-                error: null
-            });
-
-
-            // -------------------- 實時計算屬性 --------------------
-            const itineraryDays = computed(() => itinerary.value.days || []);
-
-            const currentDay = computed(() => {
-                return itineraryDays.value.find(day => day.id === currentDayId.value);
-            });
-
-            const filterCategory = ref('');
-            const filteredItems = computed(() => {
-                let items = currentDay.value ? currentDay.value.items : [];
-                if (filterCategory.value) {
-                    items = items.filter(item => item.category === filterCategory.value);
-                }
-                return items;
-            });
-            
-            // 獲取當前選定日期的第一個行程項目所標記的城市
-            const targetCity = computed(() => {
-                if (currentDay.value && currentDay.value.items && currentDay.value.items.length > 0) {
-                    const firstItemMapQuery = currentDay.value.items[0].mapQuery || '';
-                    
-                    const cityMatch = firstItemMapQuery.match(/(\w+)/);
-                    if (cityMatch && ['姬路', '神戶', '大阪', 'KIX'].includes(cityMatch[1])) {
-                        return cityMatch[1];
-                    }
-                    if (firstItemMapQuery.includes('KIX')) return 'Osaka'; 
-                    return 'Osaka'; 
-                }
-                return 'Osaka';
-            });
-            
-            // -------------------- 天氣 API 核心功能 --------------------
-            async function fetchWeather(city, apiKey, maxRetries = 3) {
-                if (!city || city === 'Osaka' || city === '載入中...') return; 
-                
-                weatherState.value.location = `${city} (載入中...)`;
-                weatherState.value.temp = '--';
-                weatherState.value.desc = '正在獲取即時天氣...';
-                weatherState.value.error = null;
-
-                const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric&lang=zh_tw`;
-                
-                for (let attempt = 0; attempt < maxRetries; attempt++) {
-                    try {
-                        const response = await fetch(apiUrl);
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`API 錯誤: ${response.status} - ${errorData.message}`);
-                        }
-
-                        const data = await response.json();
-
-                        if (data && data.main && data.weather && data.weather.length > 0) {
-                            const temp = Math.round(data.main.temp);
-                            const feelsLike = Math.round(data.main.feels_like);
-                            const minTemp = Math.round(data.main.temp_min);
-                            const maxTemp = Math.round(data.main.temp_max);
-                            const weatherDesc = data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1);
-                            const iconCode = data.weather[0].icon;
-                            
-                            weatherState.value.location = data.name || city; 
-                            weatherState.value.temp = temp;
-                            weatherState.value.desc = weatherDesc;
-                            weatherState.value.minMax = `體感 ${feelsLike}°C | ${minTemp}°C / ${maxTemp}°C`;
-                            weatherState.value.icon = getWeatherEmoji(iconCode);
-                            weatherState.value.error = null;
-                            
-                            return; // 成功，退出循環
-                        } else {
-                            throw new Error("無法解析天氣數據或數據不完整。");
-                        }
-                    } catch (error) {
-                        console.error(`天氣查詢嘗試 ${attempt + 1} 失敗:`, error.message);
-                        weatherState.value.error = `查詢失敗: ${error.message}`;
-
-                        if (attempt < maxRetries - 1) {
-                            // 指數退避延遲
-                            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                        }
-                    }
-                }
-                
-                // 所有嘗試都失敗
-                weatherState.value.location = `${city} (查詢失敗)`;
-                weatherState.value.temp = '--';
-                weatherState.value.desc = '無法取得最新天氣資訊。';
-                weatherState.value.minMax = '';
-                weatherState.value.icon = '❓';
-            }
-
-
-            // -------------------- Firebase 核心功能 --------------------
-            
-            // 取得 Firestore Document Reference (公共資料路徑)
-            const getItineraryDocRef = () => {
-                // 公共協作路徑: /artifacts/{appId}/public/data/itineraries/main-trip
-                return doc(db, `artifacts/${appId}/public/data/itineraries`, 'main-trip');
-            };
-
-            // 儲存/更新行程 (將整個行程物件寫入單一文件)
-            const saveItineraryData = async () => {
-                // 確保 DB 已初始化且用戶已認證
-                if (!db || !userId.value) {
-                    console.warn("Firestore 未連線或用戶未認證，無法儲存資料。");
-                    return;
-                }
-
-                try {
-                    await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
-                    console.log("行程資料已成功同步到 Firestore!");
-                } catch (e) {
-                    console.error("同步行程資料到 Firestore 失敗: ", e);
-                }
-            };
-
-            // 設置即時監聽器
-            const setupRealtimeListeners = () => {
-                 // 確保 DB 已初始化且用戶已認證
-                if (!db || !isAuthReady.value || !userId.value) {
-                    console.log("等待認證完成或 DB 初始化...");
-                    return;
-                }
-                
-                const docRef = getItineraryDocRef();
-                
-                // Firestore 監聽器
-                onSnapshot(docRef, (docSnapshot) => {
-                    if (docSnapshot.exists()) {
-                        const data = docSnapshot.data();
-                        itinerary.value = data;
-                        
-                        // 確保資料結構完整
-                        if (!itinerary.value.days || itinerary.value.days.length === 0) {
-                            itinerary.value.days = initializeItineraryData();
-                            saveItineraryData(); // 嘗試寫入初始化資料
-                        }
-                    } else {
-                        // 文件不存在，寫入初始化資料
-                        itinerary.value.days = initializeItineraryData();
-                        saveItineraryData();
-                    }
-                }, (error) => {
-                    console.error("監聽行程資料失敗 (請檢查 Firestore 規則是否允許公共路徑讀取): ", error);
-                });
-            };
-
-            // -------------------- 強化初始化邏輯 (包含 Auth) --------------------
-            const initFirebaseAndDatabase = async () => {
-                setLogLevel('Debug');
-                firebaseInitialized.value = false;
-                isAuthReady.value = false; 
-
-                // 註: 移除嚴格的配置檢查和強制中止，讓 Firebase SDK 本身來處理配置錯誤。
-                if (!firebaseConfig || !firebaseConfig.apiKey) {
-                    console.warn("Firebase 配置可能無效或遺失 apiKey。嘗試繼續初始化流程，但服務可能無法連線。");
-                }
-                
-                try {
-                    // initializeApp 會根據 firebaseConfig 的內容進行初始化。
-                    // 如果配置無效 (例如 key 不對或欄位不齊)，會在這裡或後續的 getAuth/signIn 失敗。
-                    const app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app); // 取得 Auth 實例
-                    
-                    // --- AUTHENTICATION LOGIC ---
-                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    
-                    // 設置 Auth 狀態監聽器
-                    onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            userId.value = user.uid; // 設定真實的 UID
-                            isAuthReady.value = true;
-                            firebaseInitialized.value = true; // 標記 Firebase 初始化完成
-                            // 只有在認證完成且有用戶後，才設置 Firestore 監聽器
-                            setupRealtimeListeners(); 
-                        } else {
-                            // 如果沒有用戶，嘗試匿名登入 (或使用自定義 Token)
-                            try {
-                                 if (initialAuthToken) {
-                                    await signInWithCustomToken(auth, initialAuthToken);
-                                    console.log("使用自定義 Token 登入成功。");
-                                } else {
-                                    await signInAnonymously(auth);
-                                    console.log("匿名登入成功。");
-                                }
-                            } catch (authError) {
-                                // 登入失敗通常是因為 auth/configuration-not-found 或 auth/operation-not-allowed
-                                console.error("Firebase 登入失敗 (配置或規則可能不正確):", authError);
-                                // 登入失敗，仍標記 Auth 檢查已完成，但 userId 會是 null
-                                isAuthReady.value = true;
-                                firebaseInitialized.value = true;
-                            }
-                        }
-                    });
-
-                } catch (initError) {
-                    // 捕獲 initializeApp 失敗 (例如，傳入的 JSON 完全無效)
-                    console.error("Firebase App 初始化失敗 (配置 JSON 結構錯誤):", initError);
-                    firebaseInitialized.value = false; 
-                    isAuthReady.value = true; 
-                }
-            };
-            // -------------------- End 強化初始化邏輯 --------------------
-
-            // -------------------- 方法 --------------------
-
-            // 樣式輔助方法
-            const tabClass = (tabName) => {
-                const base = 'p-2 rounded-full transition duration-200';
-                return currentTab.value === tabName
-                    ? `${base} bg-soft-green text-sepia-brown`
-                    : `${base} text-primary-text/60 hover:text-sepia-brown`;
-            };
-
-            // 日期輔助方法
-            const getDayOfWeek = (date) => new Date(date).toLocaleDateString('zh-TW', { weekday: 'short' });
-            const getDayOfMonth = (date) => new Date(date).getDate();
-
-            const selectDay = (dayId) => {
-                currentDayId.value = dayId;
-                filterCategory.value = ''; // 切換日期時重置分類
-            };
-
-            const getMapLink = (query) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-
-            const calculateExchange = () => {
-                hkdAmount.value = jpyAmount.value * JPY_TO_HKD_RATE;
-            };
-
-            // -------------------- 自定義確認 Modal 邏輯 (取代 window.confirm) --------------------
-            const openConfirmModal = (message, action) => {
-                confirmMessage.value = message;
-                confirmAction.value = action;
-                isConfirmModalOpen.value = true;
-            };
-
-            const closeConfirmModal = () => {
-                isConfirmModalOpen.value = false;
-                confirmAction.value = null;
-            };
-
-            const executeConfirmAction = () => {
-                if (confirmAction.value) {
-                    confirmAction.value();
-                }
-                closeConfirmModal();
-            };
-            
-            const openConfirmDelete = () => {
-                openConfirmModal('確定要刪除此行程嗎？此操作無法復原。', deleteItineraryItem);
-            };
-
-            // -------------------- 行程 CRUD --------------------
-            const openAddModal = () => {
-                form.value = { id: generateUUID(), name: '', time: '', category: categories[0], note: '', mapQuery: '', ticketPrice: null, travelTime: '30分鐘', travelModeIcon: '🚶' };
-                isEditing.value = false;
-                isItineraryModalOpen.value = true;
-            };
-
-            const openEditModal = (item, index) => {
-                form.value = { ...item }; // 複製當前項目
-                editingIndex.value = index;
-                isEditing.value = true;
-                isItineraryModalOpen.value = true;
-            };
-
-            const saveItineraryItem = () => {
-                if (!currentDay.value) return;
-                
-                if (!userId.value) {
-                    console.warn("用戶未認證，無法儲存資料。");
-                }
-
-                if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
-                
-                // 模擬交通資訊 (非實時計算)
-                if (!form.value.travelTime || form.value.travelTime === '0分鐘') {
-                    form.value.travelTime = '約 30 分鐘';
-                    form.value.travelModeIcon = form.value.category === '住宿' ? '🚌' : '🚶';
-                }
-
-                if (isEditing.value) {
-                    // 更新現有項目
-                    currentDay.value.items[editingIndex.value] = form.value;
-                } else {
-                    // 新增項目
-                    currentDay.value.items.push(form.value);
-                    // 確保排序後再儲存
-                    currentDay.value.items.sort((a, b) => {
-                        // 簡單的時間字串排序
-                        return a.time.localeCompare(b.time);
-                    });
-                }
-
-                saveItineraryData(); // 嘗試儲存到 Firestore
-                isItineraryModalOpen.value = false;
-            };
-
-            const deleteItineraryItem = () => {
-                if (currentDay.value && editingIndex.value !== null) {
-                    if (!userId.value) {
-                        console.warn("用戶未認證，無法刪除資料。");
-                    }
-                    currentDay.value.items.splice(editingIndex.value, 1);
-                    saveItineraryData(); // 嘗試儲存到 Firestore
-                    isItineraryModalOpen.value = false;
-                }
-            };
-            
-            // -------------------- 初始數據 --------------------
-            const initializeItineraryData = () => {
-                return [
-                    { id: 1, date: '2025-12-27', title: '抵達與姬路遊', items: [
-                        { id: generateUUID(), time: '01:45 - 06:10', name: '香港 HKG → KIX (MM 68)', category: '航班', note: '領取行李', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 68' },
-                        { id: generateUUID(), time: '08:50 - 11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路', travelTime: '150分鐘', travelModeIcon: '🚌' },
-                        { id: generateUUID(), time: '11:10 - 12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '14:00 - 17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '姬路', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
-                        { id: generateUUID(), time: '19:30 onwards', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
-                    ]},
-                    { id: 2, date: '2025-12-28', title: '姬路深度遊', items: [
-                        { id: generateUUID(), time: '09:00 - 12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '13:30 - 16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '姬路', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '18:30 onwards', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路', travelTime: '15分鐘', travelModeIcon: '🚶' },
-                    ]},
-                    { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', items: [
-                        { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 $\rightarrow$ 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶', travelTime: '70分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '12:30 - 14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: '神戶', travelTime: '10分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '14:00 - 19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '19:00 - 20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶', travelTime: '20分鐘', travelModeIcon: '🚌' },
-                    ]},
-                    { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', items: [
-                        { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 $\rightarrow$ 六甲山頂', category: '交通', note: 'JR $\rightarrow$ 巴士 $\rightarrow$ 纜車', mapQuery: '神戶', travelTime: '90分鐘', travelModeIcon: '🚌' },
-                        { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 $\rightarrow$ 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '神戶', travelTime: '30分鐘', travelModeIcon: '🚠' },
-                        { id: generateUUID(), time: '14:00 - 17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '神戶', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
-                        { id: generateUUID(), time: '17:30 - 19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶', travelTime: '60分鐘', travelModeIcon: '🚌' },
-                    ]},
-                    { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', items: [
-                        { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 $\rightarrow$ 淀屋橋', category: '交通', note: '阪神 $\rightarrow$ 地鐵', mapQuery: '大阪', travelTime: '60分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '大阪', travelTime: '45分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '大阪', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
-                    ]},
-                    { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', items: [
-                        { id: generateUUID(), time: '02:00 - 06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
-                        { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR $\rightarrow$ 地鐵', mapQuery: '大阪', travelTime: '45分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '10:00 - 16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '🛌' },
-                        { id: generateUUID(), time: '16:00 - 18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '大阪', travelTime: '15分鐘', travelModeIcon: '🚶' },
-                    ]},
-                    { id: 7, date: '2026-01-02', title: '觀光與返程日', items: [
-                        { id: generateUUID(), time: '09:30 - 12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
-                        { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 $\rightarrow$ 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '大阪', travelTime: '60分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '14:30 - 18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 $\rightarrow$ KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '大阪', travelTime: '5分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '21:05', name: 'KIX $\rightarrow$ 香港 HKG (MM 67)', category: '航班', note: '預留充足時間辦理手續', mapQuery: '大阪', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 67' },
-                    ]}
-                ];
-            };
-
-            // -------------------- 初始化 --------------------
             onMounted(() => {
-                // 呼叫初始化函數
                 initFirebaseAndDatabase(); 
                 calculateExchange(); 
                 
                 // 初次載入後，監聽 targetCity 的變化
                 watch(targetCity, (newCity) => {
                     fetchWeather(newCity, OPENWEATHERMAP_API_KEY);
-                }, { immediate: true }); // immediate: true 確保在 onMounted 時會執行一次
+                }, { immediate: true }); 
             });
 
             return {
@@ -805,7 +805,7 @@
                 // Firebase 狀態
                 userId,
                 firebaseInitialized,
-                isAuthReady, // 傳遞認證狀態給 UI
+                isAuthReady, 
                 // 自定義確認 Modal 
                 isConfirmModalOpen,
                 confirmMessage,
