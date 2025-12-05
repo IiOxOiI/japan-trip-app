@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>關西跨年豪華行程 (日系極簡風 - 連線已修復)</title>
+    <title>關西跨年豪華行程 (日系極簡風 - 認證已修復)</title>
     <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Vue.js 3 CDN -->
@@ -300,9 +300,9 @@
 </div>
 
 <script type="module">
-    // 使用版本 v11.6.1，與應用程式其他部分同步
+    // 引入 Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { createApp, ref, computed, onMounted } = Vue;
@@ -315,29 +315,19 @@
     createApp({
         setup() {
             // ----------------------------------------------------
-            // 🔥🔥🔥  您的 Firebase 專案配置 (已從您的回覆中貼上)  🔥🔥🔥
+            // 🔥🔥🔥  Canvas 環境變數處理 (修復認證的關鍵)  🔥🔥🔥
             // ----------------------------------------------------
-            const firebaseConfig = {
-                apiKey: "AIzaSyDhH3pTVHmMesGYRnLxXMSOAszXbSuA9fA",
-                authDomain: "kansaitripplanner.firebaseapp.com",
-                projectId: "kansaitripplanner",
-                storageBucket: "kansaitripplanner.firebasestorage.app",
-                messagingSenderId: "547034174320",
-                appId: "1:547034174320:web:fe6d1a655410fa951075b5",
-                measurementId: "G-Q3341W5VVY"
-            };
-            
-            // 應用程式 ID：使用一個唯一的固定 ID
-            const appId = 'kansai-trip-planner-main'; 
-            
-            // ----------------------------------------------------
-
+            // 取得環境提供的 Firebase 配置和 Auth Token
+            const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+            const firebaseConfig = JSON.parse(firebaseConfigString);
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // 應用程式 ID
 
             let db = null;
             let auth = null;
             const userId = ref(null);
             const isAuthReady = ref(false);
-            const isTemporaryId = ref(false); // 新增狀態：追蹤是否為臨時 ID
+            const isTemporaryId = ref(false); 
 
             // -------------------- 數據狀態 --------------------
             const currentTab = ref('itinerary');
@@ -352,13 +342,12 @@
             // 自定義確認 Modal 狀態
             const isConfirmModalOpen = ref(false);
             const confirmMessage = ref('');
-            const confirmAction = ref(null); // 儲存要執行的函數
+            const confirmAction = ref(null); 
 
             // 表單數據
             const form = ref({});
 
             // 數據儲存狀態 (從 Firestore 載入)
-            // 初始化時使用一個空物件，等待 Firestore 載入或初始化
             const itinerary = ref({ days: [] }); 
 
             // 匯率換算狀態
@@ -370,7 +359,6 @@
             const itineraryDays = computed(() => itinerary.value.days || []);
 
             const currentDay = computed(() => {
-                // 從 itinerary.value.days 中查找
                 return itineraryDays.value.find(day => day.id === currentDayId.value);
             });
 
@@ -385,10 +373,9 @@
             
             // -------------------- Firebase 核心功能 --------------------
             
-            // 取得 Firestore Document Reference
-            const getItineraryDocRef = (uid) => {
+            // 取得 Firestore Document Reference (公共資料路徑)
+            const getItineraryDocRef = () => {
                 // 公共協作路徑: /artifacts/{appId}/public/data/itineraries/main-trip
-                // 這裡使用 'main-trip' 作為固定文件 ID，確保所有使用者都存取同一份資料
                 return doc(db, `artifacts/${appId}/public/data/itineraries`, 'main-trip');
             };
 
@@ -396,14 +383,14 @@
             const saveItineraryData = async () => {
                 if (!db || !userId.value) return;
                 
-                // 如果是臨時 ID (isTemporaryId)，則不嘗試寫入，因為可能會違反 Firestore 安全規則
+                // 只有在非臨時 ID (即成功認證) 時才嘗試寫入，以符合安全規則
                 if (isTemporaryId.value) {
                     console.warn("當前處於非認證模式 (臨時 ID)，已阻止寫入 Firestore。");
                     return;
                 }
 
                 try {
-                    await setDoc(getItineraryDocRef(userId.value), itinerary.value, { merge: true });
+                    await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
                     console.log("行程資料已成功同步到 Firestore!");
                 } catch (e) {
                     console.error("同步行程資料到 Firestore 失敗: ", e);
@@ -414,62 +401,65 @@
             const setupRealtimeListeners = (uid) => {
                 if (!db || !uid) return;
                 
-                const docRef = getItineraryDocRef(uid);
+                const docRef = getItineraryDocRef();
                 
+                // Firestore 監聽器
                 onSnapshot(docRef, (docSnapshot) => {
                     if (docSnapshot.exists()) {
                         const data = docSnapshot.data();
                         itinerary.value = data;
                         
-                        // 確保載入後至少有一天的數據，如果沒有，則初始化
                         if (!itinerary.value.days || itinerary.value.days.length === 0) {
                             itinerary.value.days = initializeItineraryData();
-                            saveItineraryData(); // 寫入初始數據
+                            saveItineraryData(); 
                         }
                     } else {
-                        // 如果文件不存在 (第一次使用)，則寫入初始數據
                         itinerary.value.days = initializeItineraryData();
                         saveItineraryData();
                     }
                 }, (error) => {
-                    // 這裡通常會捕捉到 "Permission Denied" 錯誤，這在非認證模式下是預期的
-                    console.error("監聽行程資料失敗 (可能是由於安全規則): ", error);
+                    console.error("監聽行程資料失敗 (可能是權限不足): ", error);
                 });
             };
 
-            // -------------------- 初始化與認證 (已修復) --------------------
+            // -------------------- 初始化與認證 (已修復 Canvas 專用邏輯) --------------------
             const initFirebaseAndAuth = async () => {
                 setLogLevel('Debug');
                 
                 try {
                     const app = initializeApp(firebaseConfig);
                     db = getFirestore(app);
-                    auth = getAuth(app); // 初始化服務
+                    auth = getAuth(app); 
 
                     let currentUid = null;
                     isTemporaryId.value = false;
                     
                     try {
-                        // 嘗試匿名登入
-                        const userCredential = await signInAnonymously(auth);
-                        currentUid = userCredential.user.uid;
-                        console.log("匿名登入成功:", currentUid);
+                        if (initialAuthToken) {
+                            // 優先使用自訂令牌登入 (Canvas 環境的最佳實踐)
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            console.log("使用自訂令牌登入成功。");
+                        } else {
+                            // 令牌不存在時，退回到匿名登入
+                            await signInAnonymously(auth);
+                            console.log("匿名登入成功。");
+                        }
+                        
+                        currentUid = auth.currentUser.uid;
 
                     } catch (authError) {
-                        // 捕捉到 auth/configuration-not-found 或其他 Auth 錯誤
+                        // 如果所有認證方法失敗 (包括令牌和匿名登入)
                         console.error("Firebase Auth 認證失敗 (進入非認證模式):", authError);
-                        console.warn("應用程式將在非認證模式下運行。Firestore 讀寫可能被安全規則阻止。");
                         
-                        // Auth 失敗的優雅降級處理：生成一個臨時 ID
+                        // 優雅降級處理：生成一個臨時 ID
                         currentUid = generateUUID(); 
                         isTemporaryId.value = true;
                     }
                     
-                    // 無論認證成功或失敗，都使用一個 ID
                     userId.value = currentUid; 
                     isAuthReady.value = true;
 
-                    // 設置 Firestore 監聽器
+                    // 設置 Firestore 監聽器 (即使是臨時 ID，也嘗試設置，以便只讀訪問)
                     if (db) {
                         setupRealtimeListeners(currentUid);
                     }
@@ -548,8 +538,9 @@
                 if (!currentDay.value) return;
                 
                 if (isTemporaryId.value) {
-                    // 在非認證模式下允許編輯本地數據，但不寫入 Firestore
-                    console.warn("非認證模式下無法儲存到雲端。");
+                    console.warn("非認證模式下無法儲存到雲端。請重新整理或檢查認證狀態。");
+                    // 為了不讓使用者體驗中斷，我們仍更新本地狀態
+                    
                 }
 
                 if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
@@ -570,7 +561,7 @@
                     currentDay.value.items.sort((a, b) => a.time.localeCompare(b.time));
                 }
 
-                saveItineraryData(); // 嘗試儲存到 Firestore (在非認證模式下會被阻止)
+                saveItineraryData(); // 嘗試儲存到 Firestore (如果認證成功，才會執行寫入)
                 isItineraryModalOpen.value = false;
             };
 
@@ -636,7 +627,6 @@
             // -------------------- 初始化 --------------------
             onMounted(() => {
                 initFirebaseAndAuth();
-                // 確保在載入後，匯率計算值是正確的
                 calculateExchange(); 
             });
 
@@ -647,7 +637,7 @@
                 isItineraryModalOpen,
                 isEditing,
                 form,
-                itineraryDays, // 暴露計算屬性
+                itineraryDays, 
                 jpyAmount,
                 hkdAmount,
                 tabClass,
@@ -662,11 +652,11 @@
                 openAddModal,
                 openEditModal,
                 saveItineraryItem,
-                openConfirmDelete, // 新的確認刪除方法
+                openConfirmDelete, 
                 // Firebase 狀態
                 userId,
                 isAuthReady,
-                isTemporaryId, // 暴露新的狀態
+                isTemporaryId, 
                 // 自定義確認 Modal 
                 isConfirmModalOpen,
                 confirmMessage,
