@@ -302,13 +302,14 @@
 <script type="module">
     // 引入 Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { createApp, ref, computed, onMounted } = Vue;
 
     // 輔助函數：生成 UUID
     function generateUUID() {
+        // 使用 crypto.randomUUID() 而非 Math.random() 確保唯一性
         return crypto.randomUUID();
     }
 
@@ -427,6 +428,7 @@
 
             // -------------------- 強化初始化與認證邏輯 --------------------
             const initFirebaseAndAuth = async () => {
+                // 設置 Debug 級別的日誌，有助於診斷連線失敗原因
                 setLogLevel('Debug');
                 isAuthReady.value = false;
                 userId.value = null;
@@ -643,7 +645,8 @@
 
             // -------------------- 初始化 --------------------
             onMounted(() => {
-                initFirebaseAndAuth();
+                // 在這裡呼叫 initFirebaseAndAuth，它會使用從環境變數 '__firebase_config' 中取得的配置
+                initFirebaseAndAuth(); 
                 calculateExchange(); 
             });
 
@@ -674,7 +677,7 @@
                 userId,
                 isAuthReady,
                 isTemporaryId,
-                firebaseInitialized, // 輸出新狀態
+                firebaseInitialized, 
                 // 自定義確認 Modal 
                 isConfirmModalOpen,
                 confirmMessage,
