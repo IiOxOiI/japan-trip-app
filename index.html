@@ -3,1181 +3,644 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日本關西七日行：日系極簡旅程規劃</title>
-    <!-- Tailwind CSS CDN -->
+    <title>關西跨年豪華行程 (日系極簡風 - 移除花費頁)</title>
+    <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <!-- Lucide Icons CDN (用於圖標) -->
-    <script type="module" src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- 引入 Vue.js 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
-        /* 設定字體為 Inter (極簡風格常用) 和 確保內容不會被 Tab Bar 遮擋 */
-        body { font-family: 'Inter', sans-serif; }
-        .tab-content { padding-bottom: 5rem; }
-        
-        /* 定義主題色 (大地色系) */
-        .tailwind-theme {
-            --color-primary: #8B5CF6; /* 偏紫的暖色調，可替換為更偏棕的 #A0522D */
-            --color-accent: #E5AD5A; /* 暖橘色/焦糖色 */
-            --color-bg-light: #F0F5F6; /* 根據 Banner 底色調整為淺淡藍綠白 */
-            --color-text-dark: #333333;
+        /* 定義日系極簡風格的顏色和字體 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #F8F8F4; /* 淺米白色/紙白色背景 */
         }
-        
-        /* 圓弧銜接效果的專用樣式 */
-        .banner-arc {
-            /* 模擬背景延伸色，使用與主內容區塊相同的顏色 */
-            background-color: var(--color-bg-light); 
-            border-top-left-radius: 3rem; /* 大圓角半徑 */
-            border-top-right-radius: 3rem;
-            /* 使用相對定位將內容往上拉，與 Banner 重疊 */
-            position: relative;
-            z-index: 10; /* Z-index 10: 讓主要內容區塊稍微浮起 */
+        /* 定義 Tailwind 自定義顏色 */
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'soft-green': '#E6F0E6', /* 淺綠色 */
+                        'sepia-brown': '#6B4630', /* 棕色 */
+                        'header-bg': '#E0E7D6',  /* 頁首柔和綠 */
+                        'primary-text': '#333333',
+                    }
+                }
+            }
         }
 
-        /* 隱藏原生滾動條，保持 App 視覺效果 */
+        /* 頁首圓弧效果 */
+        #app-header {
+            position: relative;
+            background-color: #E0E7D6; /* 頁首背景色 */
+            height: 16rem; /* 增加高度以容納使用者 ID */
+            overflow: hidden;
+        }
+        #app-header::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background-color: #F8F8F4; /* 必須與 body 背景色相同 */
+            border-top-left-radius: 50%;
+            border-top-right-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        /* 主內容區域向上重疊，並增加底部 padding 以容納固定導覽列 */
+        #main-content {
+            position: relative;
+            z-index: 10;
+            margin-top: -3rem; /* 向上拉動以重疊圓弧 */
+            padding-bottom: 7rem; /* 新增: 底部邊距，避免內容被固定導覽列遮擋 */
+        }
+
+        /* 隱藏滾動條 */
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
         .hide-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
         }
-
-        /* 拖曳樣式，增加視覺回饋 */
-        .dragging {
-            opacity: 0.5;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            transform: scale(1.02);
-            transition: transform 0.1s ease-in-out;
-        }
-
     </style>
 </head>
-<body class="bg-amber-50"> <!-- 使用淺米白作為基礎背景，但在 main 區塊會被覆蓋 -->
+<body>
 
-<div id="trip-app" class="tailwind-theme">
-    
-    <!-- 頁首 Banner 區塊 -->
-    <header class="relative overflow-hidden bg-[#F0F5F6]"> <!-- 設定背景色為 banner 延伸色 -->
-        <!-- 圖片容器高度為 250px，圖片使用 object-cover 滿版 -->
-        <div class="h-[250px] overflow-hidden">
-            <img 
-                src="banner.png"
-                alt="日系關西旅遊橫幅" 
-                class="w-full h-full object-cover object-center"
-                onerror="this.onerror=null; this.src='https://placehold.co/1920x400/8B5CF6/ffffff?text=Banner+Placeholder';">
+<div id="app" class="min-h-screen">
+    <!-- 應用程式頁首 (Header) - 圓弧銜接 -->
+    <header id="app-header" class="text-center pt-12">
+        <h1 class="text-3xl font-bold text-sepia-brown">
+            關西跨年行程
+        </h1>
+        <p class="mt-1 text-lg text-primary-text/80">
+            2025.12.27 ~ 2026.01.02
+        </p>
+
+        <!-- Firebase 連線狀態與使用者 ID -->
+        <div class="mt-4 p-3 mx-auto max-w-sm bg-sepia-brown/10 rounded-xl">
+            <p v-if="!isAuthReady" class="text-xs text-sepia-brown font-semibold">
+                連線中... 🌐
+            </p>
+            <div v-else class="text-xs text-sepia-brown text-left">
+                <p class="font-semibold">
+                    ✅ <span class="text-green-700">即時同步已啟用</span>
+                </p>
+                <p class="mt-1 break-all">
+                    您的協作 ID: <span class="font-mono text-primary-text/80">{{ userId }}</span>
+                </p>
+            </div>
         </div>
-
-        <!-- Tab Bar 浮動按鈕區塊 (位於頁首右下方, 浮在圖片上方) -->
-        <nav class="absolute bottom-4 right-4 flex space-x-2 z-40">
-            <!-- 每日行程表 Tab -->
-            <button @click="setActiveTab('itinerary')" :class="tabClass('itinerary')" title="每日行程表">
-                <i data-lucide="map-pin" class="w-6 h-6"></i>
-            </button>
-            <!-- 資訊 Tab -->
-            <button @click="setActiveTab('info')" :class="tabClass('info')" title="資訊">
-                <i data-lucide="info" class="w-6 h-6"></i>
-            </button>
-            <!-- 購物清單 Tab -->
-            <button @click="setActiveTab('shopping')" :class="tabClass('shopping')" title="購物清單">
-                <i data-lucide="shopping-basket" class="w-6 h-6"></i>
-            </button>
-            <!-- 花費 Tab -->
-            <button @click="setActiveTab('expenses')" :class="tabClass('expenses')" title="花費">
-                <i data-lucide="wallet" class="w-6 h-6"></i>
-            </button>
-        </nav>
+        
+        <!-- Tab Icon Bar 已移至最下方 -->
     </header>
 
-    <!-- 主內容區塊 - 實現圓弧銜接 -->
-    <main class="banner-arc min-h-screen pt-12 -mt-2 p-4">
-
-        <!-- 1. 每日行程表 內容 -->
-        <div v-show="activeTab === 'itinerary'" class="tab-content">
-            <h1 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">每日行程表</h1>
-
-            <!-- 日期選單 (橫向滑動) -->
-            <div class="flex overflow-x-scroll hide-scrollbar space-x-4 pb-4 mb-4 border-b">
-                <div v-for="(day, index) in itineraryDays" :key="day.date"
-                    @click="setActiveDay(day.date)"
-                    :class="{ 
-                        'bg-amber-200 text-amber-900 shadow-lg border-amber-500': activeDay === day.date,
-                        'bg-white text-gray-500 hover:bg-gray-100': activeDay !== day.date 
-                    }"
-                    class="flex-shrink-0 w-16 h-16 rounded-xl border-2 p-2 transition duration-200 cursor-pointer text-center">
-                    <p class="font-bold text-lg leading-none">{{ day.dayOfWeek }}</p>
-                    <p class="text-sm font-light">{{ day.dayOfMonth }}</p>
+    <!-- 主內容區塊 - 向上重疊頁首圓弧 -->
+    <main id="main-content" class="max-w-xl mx-auto px-4">
+        
+        <!-- -------------------- 每日行程表 (Itinerary) Tab -------------------- -->
+        <div v-show="currentTab === 'itinerary'" class="space-y-4">
+            
+            <!-- 日期橫向滑動選單 -->
+            <div class="overflow-x-scroll hide-scrollbar whitespace-nowrap py-3 sticky top-0 z-30 bg-F8F8F4">
+                <div class="inline-flex space-x-3">
+                    <!-- 使用 itinerary_days 而非 itinerary，因為 itinerary 現在是整個物件 {days: [...]} -->
+                    <div v-for="day in itineraryDays" :key="day.id" 
+                         @click="selectDay(day.id)"
+                         class="cursor-pointer p-2 rounded-xl text-center transition duration-200"
+                         :class="currentDayId === day.id ? 'bg-sepia-brown text-white shadow-md' : 'bg-white text-primary-text border border-soft-green hover:bg-soft-green'"
+                    >
+                        <span class="font-bold text-sm block">{{ getDayOfWeek(day.date) }}</span>
+                        <span class="font-extrabold text-xl leading-none block mt-1">{{ getDayOfMonth(day.date) }}</span>
+                    </div>
                 </div>
             </div>
 
             <!-- 當日行程內容 -->
-            <div v-if="currentDayItinerary">
-                
-                <!-- 每日天氣資訊 (使用 Google Search + Gemini API 摘要) -->
-                <div v-if="currentDayWeatherSummary" class="flex items-start space-x-3 p-4 mb-4 bg-white rounded-xl shadow-md border-l-4 border-amber-400">
-                    <i data-lucide="cloud-sun-wind" class="w-8 h-8 text-amber-500 flex-shrink-0 mt-1"></i>
-                    <div class="flex-grow">
-                        <p class="text-lg font-semibold text-gray-700">{{ currentDayItinerary.city }} 天氣摘要</p>
-                        <!-- 使用 whitespace-pre-wrap 確保換行符號生效 (如果 Gemini 模型有換行) -->
-                        <p class="text-sm text-gray-600 whitespace-pre-wrap mt-1">{{ currentDayWeatherSummary }}</p>
+            <div v-if="currentDay">
+                <!-- 天氣資訊 (模擬) -->
+                <div class="bg-white p-4 rounded-xl shadow-lg border border-soft-green mb-4 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-3xl" v-html="currentDay.weather.icon"></span>
+                        <div>
+                            <p class="font-bold text-xl text-primary-text">{{ currentDay.weather.temp }}°C</p>
+                            <p class="text-xs text-gray-500">體感 {{ currentDay.weather.feelsLike }}°C</p>
+                        </div>
                     </div>
-                </div>
-                <div v-else-if="currentDayItinerary.city && isWeatherLoading" class="p-4 mb-4 bg-white rounded-xl shadow-md border-l-4 border-gray-300">
-                    <p class="text-sm text-gray-500">正在為您查詢 {{ currentDayItinerary.city }} 的 Google 天氣摘要...</p>
+                    <p class="text-sm text-sepia-brown font-semibold">{{ currentDay.weather.location }}</p>
                 </div>
 
+                <!-- 分類篩選欄 (Dropdown) -->
+                <div class="mb-4 flex space-x-2">
+                    <select v-model="filterCategory" class="p-2 border border-soft-green rounded-lg bg-white text-sm text-primary-text focus:border-sepia-brown focus:ring-sepia-brown transition">
+                        <option value="">所有分類</option>
+                        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+                    </select>
+                </div>
 
-                <!-- 行程列表 (可拖曳) -->
-                <div @dragover.prevent @drop="dropItem" class="space-y-4">
-                    <div v-for="(item, index) in currentDayItinerary.items" :key="item.id"
-                        :draggable="item.category !== '航班' && !(activeDay === '2025-12-27' && index === 0)"
-                        @dragstart="dragStart(index)"
-                        @click="openNavigation(item.name, item.address)"
-                        :class="{ 'opacity-100': !isDragging }"
-                        class="bg-white p-4 rounded-xl shadow-lg transition duration-200 transform hover:scale-[1.01] cursor-pointer">
+                <!-- 行程列表 -->
+                <div v-for="(item, index) in filteredItems" :key="item.id" class="mb-4">
+                    
+                    <!-- 交通時間顯示 (非第一個行程) -->
+                    <div v-if="index > 0 || currentDayId > 1 && index === 0" class="flex items-center justify-center space-x-2 text-sm text-gray-500 my-2">
+                         <span v-html="index === 0 ? '🏠' : item.travelModeIcon"></span>
+                        <span class="text-sepia-brown font-semibold">{{ index === 0 ? '前日住宿至此' : item.travelTime }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-soft-green"><line x1="12" y1="5" x2="12" y2="19"/></svg>
+                    </div>
+                    
+                    <!-- 行程卡片 -->
+                    <div class="day-card bg-white p-4 rounded-xl shadow-md border-l-4 border-sepia-brown/50 transition-all duration-300 hover:shadow-lg">
+                        
+                        <!-- 卡片頂部: 時間, 名稱, 地圖ICON, 編輯ICON -->
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-grow">
+                                <span class="font-bold text-base block text-sepia-brown">{{ item.time }}</span>
+                                <span class="text-lg font-semibold block mt-0.5" :class="item.category === '航班' ? 'text-red-600' : 'text-primary-text'">{{ item.name }}</span>
+                            </div>
 
-                        <!-- 交通時間 (從前一個行程或飯店到這裡) -->
-                        <div v-if="index === 0 && currentDayItinerary.hotel && item.category !== '航班'" class="mb-3 text-sm text-gray-500 flex items-center space-x-2">
-                             <i data-lucide="hotel" class="w-4 h-4"></i>
-                             <i data-lucide="chevrons-right" class="w-3 h-3"></i>
-                             <!-- Mock 交通時間 -->
-                             <span>從飯店 ({{ currentDayItinerary.hotel.name }}) 出發：約 30 分鐘 (公共交通)</span>
-                        </div>
-                         <div v-else-if="index > 0 && item.category !== '航班'" class="mb-3 text-sm text-gray-500 flex items-center space-x-2">
-                            <i data-lucide="train" class="w-4 h-4"></i>
-                             <i data-lucide="chevrons-right" class="w-3 h-3"></i>
-                             <!-- Mock 交通時間 -->
-                             <span>從 {{ currentDayItinerary.items[index-1].name }} 出發：約 {{ (index * 5) + 10 }} 分鐘 (公共交通)</span>
-                        </div>
-
-
-                        <!-- 行程卡片內容 -->
-                        <div v-if="item.category === '航班'" class="border-2 border-indigo-400 bg-indigo-50 p-3 rounded-lg">
-                            <h3 class="text-xl font-bold text-indigo-800 flex items-center mb-2">
-                                <i data-lucide="plane" class="w-6 h-6 mr-2"></i> {{ item.name }}
-                            </h3>
-                            <div class="text-sm text-indigo-700 grid grid-cols-2 gap-2">
-                                <p>起飛: {{ item.details.departureTime }} ({{ item.details.departureAirport }})</p>
-                                <p>抵達: {{ item.details.arrivalTime }} ({{ item.details.arrivalAirport }})</p>
-                                <p>航班編號: {{ item.details.flightNumber }}</p>
-                                <p>航空公司: {{ item.details.airline }}</p>
+                            <div class="flex space-x-2">
+                                <!-- Google Maps 按鈕 -->
+                                <a 
+                                    v-if="item.mapQuery"
+                                    :href="getMapLink(item.mapQuery)"
+                                    target="_blank"
+                                    class="p-1 rounded-full bg-sepia-brown/10 text-sepia-brown hover:bg-sepia-brown hover:text-white transition duration-150"
+                                    title="Google 地圖"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 12H7"/></svg>
+                                </a>
+                                <!-- 編輯按鈕 -->
+                                <button @click="openEditModal(item, index)" class="p-1 rounded-full bg-sepia-brown/10 text-sepia-brown hover:bg-sepia-brown hover:text-white transition duration-150" title="編輯行程">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>
+                                </button>
                             </div>
                         </div>
-                        <div v-else @click.stop="openEditModal(item, currentDayItinerary.date)" class="space-y-2">
-                            <p class="text-xs font-medium text-gray-500">{{ item.category }}</p>
-                            <h3 class="text-lg font-semibold text-gray-800">{{ item.name }}</h3>
-                            <p v-if="item.details.hours" class="text-sm text-amber-600 flex items-center">
-                                <i data-lucide="clock" class="w-4 h-4 mr-1"></i> 營業時間: {{ item.details.hours }}
-                            </p>
-                            <p v-if="item.details.ticket" class="text-sm text-green-700 flex items-center">
-                                <i data-lucide="ticket" class="w-4 h-4 mr-1"></i> 門票: {{ item.details.ticket }}
-                            </p>
-                            <p v-if="item.details.notes" class="text-sm text-gray-600 border-t mt-2 pt-2">
-                                備註: {{ item.details.notes }}
-                            </p>
+
+                        <!-- 航班專屬呈現 -->
+                        <div v-if="item.category === '航班'" class="bg-red-50 p-3 rounded-lg text-sm border-l-4 border-red-400 mt-2">
+                            <p class="font-medium text-red-700">✈️ {{ item.note }}</p>
+                            <p class="text-xs text-red-600">班次: {{ item.transport }}</p>
+                        </div>
+                        
+                        <!-- 一般行程資訊 -->
+                        <div v-else class="text-sm space-y-1 mt-2">
+                            <p v-if="item.category === '景點' && item.ticketPrice" class="text-gray-600">門票: <span class="font-medium text-sepia-brown">{{ item.ticketPrice }} JPY</span></p>
+                            <p class="text-gray-600"><span class="font-medium text-primary-text">分類: {{ item.category }}</span></p>
+                            <p class="text-xs text-primary-text/70">{{ item.note }}</p>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- 新增行程按鈕 (浮動的 "+" 按鈕) -->
+            <button @click="openAddModal" class="fixed bottom-20 right-6 p-4 rounded-full bg-sepia-brown text-white shadow-2xl transition hover:bg-sepia-brown/80 z-40" title="新增行程">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+
+        </div>
+
+        <!-- -------------------- 匯率換算 (Exchange) Tab -------------------- -->
+        <div v-show="currentTab === 'exchange'" class="p-6 bg-white rounded-2xl shadow-xl">
+            <h2 class="text-xl font-bold text-sepia-brown mb-4">💵 匯率換算 (JPY $\rightarrow$ HKD)</h2>
+            <div class="text-xs text-red-500 mb-4">* 使用固定模擬匯率: 1 JPY = 0.052 HKD</div>
+            
+            <div class="space-y-4">
+                <div class="flex items-center border-b pb-4">
+                    <label for="jpy-input" class="text-lg font-medium w-24">日圓 (JPY):</label>
+                    <input type="number" v-model.number="jpyAmount" @input="calculateExchange" id="jpy-input" class="flex-grow p-3 border border-soft-green rounded-lg focus:border-sepia-brown text-lg text-right" placeholder="輸入金額">
+                </div>
+
+                <div class="text-center text-sepia-brown font-extrabold text-3xl py-4">
+                    =
                 </div>
                 
+                <div class="flex items-center border-t pt-4">
+                    <label for="hkd-output" class="text-lg font-medium w-24">港幣 (HKD):</label>
+                    <input type="text" :value="hkdAmount.toFixed(2)" id="hkd-output" readonly class="flex-grow p-3 border border-soft-green rounded-lg bg-soft-green text-lg text-right font-bold">
+                </div>
             </div>
-            <p v-else class="text-center text-gray-500 mt-8">請選擇一個日期查看行程。</p>
-
-            <!-- 新增行程按鈕 -->
-            <button @click="openNewModal(activeDay)"
-                class="fixed bottom-20 right-6 bg-amber-600 text-white p-4 rounded-full shadow-xl hover:bg-amber-700 transition duration-300 z-40"> <!-- 設置 z-index 確保在 modal 之下，但浮在內容之上 -->
-                <i data-lucide="plus" class="w-6 h-6"></i>
-            </button>
         </div>
 
+        <!-- -------------------- 花費 (Expense) Tab 已移除 -------------------- -->
 
-        <!-- 2. 資訊 內容 -->
-        <div v-show="activeTab === 'info'" class="tab-content">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">旅遊資訊</h1>
-
-            <!-- 匯率換算 (已更新為 JPY → HKD) -->
-            <div class="bg-white p-4 rounded-xl shadow-lg mb-6 border-l-4 border-amber-500">
-                <h2 class="text-xl font-semibold mb-3 flex items-center"><i data-lucide="trending-up" class="w-5 h-5 mr-2"></i> 匯率換算 (JPY → HKD)</h2>
-                <p class="text-sm text-gray-500 mb-2">當前模擬匯率：1 JPY ≈ {{ mockExchangeRate }} HKD</p>
-                <div class="flex space-x-3">
-                    <input type="number" v-model.number="jpyAmount" placeholder="輸入日幣金額 (JPY)"
-                        class="flex-1 p-2 border rounded-lg focus:ring-amber-500 focus:border-amber-500">
-                    <div class="flex-1 p-2 bg-gray-100 rounded-lg text-lg font-bold text-amber-700">
-                        {{ hkdAmount }} HKD
-                    </div>
-                </div>
-            </div>
-
-            <!-- 航班資訊 -->
-            <div class="bg-white p-4 rounded-xl shadow-lg mb-6 border-l-4 border-indigo-500">
-                <h2 class="text-xl font-semibold mb-3 flex items-center"><i data-lucide="plane" class="w-5 h-5 mr-2"></i> 航班資訊</h2>
-                <div v-for="(flight, type) in flights" :key="type" class="mb-4 pb-4 border-b last:border-b-0">
-                    <p class="text-lg font-medium text-indigo-700 mb-2">{{ type === 'go' ? '去程' : '回程' }}：{{ flight.airline }}</p>
-                    <div class="grid grid-cols-2 text-sm gap-y-1 text-gray-700">
-                        <p><i data-lucide="arrow-right" class="w-3 h-3 inline-block"></i> 航班編號: {{ flight.flightNumber }}</p>
-                        <p><i data-lucide="clock" class="w-3 h-3 inline-block"></i> 飛行時間: {{ flight.duration }}</p>
-                        <p class="col-span-2">
-                            <span class="font-semibold">{{ flight.departureTime }} ({{ flight.departureAirport }})</span> → 
-                            <span class="font-semibold">{{ flight.arrivalTime }} ({{ flight.arrivalAirport }})</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 住宿資訊 -->
-            <div class="bg-white p-4 rounded-xl shadow-lg mb-6 border-l-4 border-emerald-500">
-                <h2 class="text-xl font-semibold mb-3 flex items-center"><i data-lucide="bed" class="w-5 h-5 mr-2"></i> 住宿資訊</h2>
-                <div v-for="hotel in hotels" :key="hotel.name" class="mb-4 pb-4 border-b last:border-b-0">
-                    <p class="text-lg font-medium text-emerald-700">{{ hotel.name }}</p>
-                    <p class="text-sm text-gray-500">入住: {{ hotel.checkInDate }} / 退房: {{ hotel.checkOutDate }}</p>
-                    <p class="text-sm text-gray-700">地址: {{ hotel.address }}</p>
-                    <p class="text-sm text-gray-700">電話: {{ hotel.phone }}</p>
-                    <a :href="hotel.navLink" target="_blank" class="text-sm text-blue-500 hover:underline flex items-center mt-1">
-                        <i data-lucide="navigation" class="w-4 h-4 mr-1"></i> 導航至此飯店
-                    </a>
-                </div>
-            </div>
-            
-            <!-- 原有的 租車資訊 和 緊急連絡 區塊已被移除 -->
-
-        </div>
-
-
-        <!-- 3. 購物清單 內容 -->
-        <div v-show="activeTab === 'shopping'" class="tab-content">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">購物清單</h1>
-
-            <div v-if="shoppingList.length > 0" class="space-y-4">
-                <div v-for="(item, index) in shoppingList" :key="item.id"
-                    class="bg-white p-4 rounded-xl shadow-lg flex items-center space-x-4">
-                    <input type="checkbox" v-model="item.purchased" 
-                           class="form-checkbox h-5 w-5 text-amber-600 rounded-full border-gray-300 focus:ring-amber-500">
-                    
-                    <div class="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border">
-                         <img v-if="item.imagePreview" :src="item.imagePreview" alt="商品圖片" class="w-full h-full object-cover">
-                         <i v-else data-lucide="camera" class="w-full h-full p-2 text-gray-400"></i>
-                    </div>
-
-                    <div class="flex-grow">
-                        <p :class="{ 'line-through text-gray-400': item.purchased }" class="text-lg font-semibold text-gray-800">{{ item.name }}</p>
-                        <p v-if="item.notes" class="text-sm text-gray-500 mt-1">{{ item.notes }}</p>
-                    </div>
-                    
-                    <button @click="removeShoppingItem(index)" class="text-red-500 hover:text-red-700 transition">
-                         <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    </button>
-                </div>
-            </div>
-            <p v-else class="text-center text-gray-500 mt-8">購物清單為空。點擊右下角 '+' 新增。</p>
-
-            <!-- 新增購物清單按鈕 -->
-             <button @click="openShoppingModal"
-                class="fixed bottom-20 right-6 bg-amber-600 text-white p-4 rounded-full shadow-xl hover:bg-amber-700 transition duration-300 z-40"> <!-- 設置 z-index 確保在 modal 之下，但浮在內容之上 -->
-                <i data-lucide="plus" class="w-6 h-6"></i>
-            </button>
-        </div>
-
-
-        <!-- 4. 花費 內容 -->
-        <div v-show="activeTab === 'expenses'" class="tab-content">
-            <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">旅行花費記錄</h1>
-
-            <!-- 總花費 -->
-            <div class="bg-amber-100 p-4 rounded-xl shadow-lg mb-6 text-center border-b-4 border-amber-600">
-                <p class="text-sm text-amber-800">總花費 (JPY)</p>
-                <p class="text-4xl font-extrabold text-amber-900">{{ totalExpenses.toLocaleString() }} JPY</p>
-            </div>
-
-            <div v-if="expenses.length > 0" class="space-y-3">
-                 <div v-for="(expense, index) in expenses" :key="index"
-                    class="bg-white p-4 rounded-xl shadow-md border-l-4"
-                    :class="expenseCategoryColor(expense.category)">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-xs font-medium text-gray-500">{{ expense.category }} - {{ expense.date }}</p>
-                            <p class="text-lg font-semibold text-gray-800">{{ expense.name }}</p>
-                        </div>
-                        <div class="text-right">
-                             <p class="text-2xl font-bold">{{ expense.amount.toLocaleString() }} JPY</p>
-                             <p class="text-sm text-gray-500">{{ expense.paymentMethod }}</p>
-                        </div>
-                    </div>
-                    <p v-if="expense.notes" class="text-sm text-gray-600 mt-2 border-t pt-2">備註: {{ expense.notes }}</p>
-                    <!-- 編輯/刪除按鈕 (可簡化為一個編輯按鈕打開 Modal) -->
-                    <button @click="openExpenseModal(expense, index)" class="text-xs text-blue-500 hover:underline mt-2">編輯</button>
-                </div>
-            </div>
-            <p v-else class="text-center text-gray-500 mt-8">目前尚無花費記錄。點擊右下角 '+' 新增。</p>
-
-            <!-- 新增花費按鈕 -->
-            <button @click="openExpenseModal(null)"
-                class="fixed bottom-20 right-6 bg-amber-600 text-white p-4 rounded-full shadow-xl hover:bg-amber-700 transition duration-300 z-40"> <!-- 設置 z-index 確保在 modal 之下，但浮在內容之上 -->
-                <i data-lucide="plus" class="w-6 h-6"></i>
-            </button>
-        </div>
-
-
-        <!-- 底部 Tab Bar (固定在底部) -->
-        <!-- FIX: 保持 z-50 確保它在浮動按鈕 (z-40) 和內容 (z-10) 上方 -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-xl z-50 border-t pt-2 pb-4">
-            <div class="flex justify-around max-w-lg mx-auto">
-                <!-- 每日行程表 Tab (再次顯示，提供更好的 App 體驗) -->
-                <button @click="setActiveTab('itinerary')" :class="tabBarClass('itinerary')" title="行程">
-                    <i data-lucide="map-pin" class="w-6 h-6"></i>
-                    <span class="text-xs mt-1">行程</span>
-                </button>
-                <!-- 資訊 Tab -->
-                <button @click="setActiveTab('info')" :class="tabBarClass('info')" title="資訊">
-                    <i data-lucide="info" class="w-6 h-6"></i>
-                    <span class="text-xs mt-1">資訊</span>
-                </button>
-                <!-- 購物清單 Tab -->
-                <button @click="setActiveTab('shopping')" :class="tabBarClass('shopping')" title="購物">
-                    <i data-lucide="shopping-basket" class="w-6 h-6"></i>
-                    <span class="text-xs mt-1">購物</span>
-                </button>
-                <!-- 花費 Tab -->
-                <button @click="setActiveTab('expenses')" :class="tabBarClass('expenses')" title="花費">
-                    <i data-lucide="wallet" class="w-6 h-6"></i>
-                    <span class="text-xs mt-1">花費</span>
-                </button>
-            </div>
-        </nav>
-        
     </main>
 
-    <!-- 彈出視窗 (Modal) 基礎結構 -->
-    <!-- Modal 必須是最高的 z-index, 設定為 z-[60] -->
-    <div v-if="modal.isVisible" class="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 relative">
-            
-            <button @click="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                 <i data-lucide="x" class="w-6 h-6"></i>
+    <!-- -------------------- 固定底部的 Tab Icon Bar -------------------- -->
+    <div class="fixed inset-x-0 bottom-0 flex justify-center p-4 z-50">
+        <div class="flex bg-white rounded-full shadow-2xl p-3 space-x-6 border border-sepia-brown/10">
+            <!-- Tab: 行程表 -->
+            <button @click="currentTab = 'itinerary'" :class="tabClass('itinerary')" title="每日行程表">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 15h4M10 19h4"/></svg>
             </button>
-
-            <!-- 行程編輯/新增 Modal -->
-            <div v-if="modal.type === 'itinerary'">
-                <h3 class="text-xl font-bold mb-4">{{ modal.isEdit ? '編輯行程' : '新增行程' }}</h3>
-                <form @submit.prevent="saveItineraryItem">
-                    <!-- 分類下拉選單 (已包含交通) -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">分類</label>
-                        <select v-model="modal.data.category" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option v-for="cat in itineraryCategories" :value="cat">{{ cat }}</option>
-                        </select>
-                    </div>
-                    <!-- 名稱 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">名稱</label>
-                        <input type="text" v-model="modal.data.name" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 地址 (用於導航) -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">地址 (用於導航)</label>
-                        <input type="text" v-model="modal.data.address"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 營業時間 (條件顯示) -->
-                    <div v-if="['景點', '美食', '購物', '住宿'].includes(modal.data.category)" class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">營業時間 / Check-in 時間</label>
-                        <input type="text" v-model="modal.data.details.hours"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 門票 (景點專屬) -->
-                    <div v-if="modal.data.category === '景點'" class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">門票</label>
-                        <input type="text" v-model="modal.data.details.ticket"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 備註 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">特色 & 備註</label>
-                        <textarea v-model="modal.data.details.notes" rows="3"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
-                    </div>
-
-                    <div class="flex justify-between mt-6">
-                        <button v-if="modal.isEdit" type="button" @click="confirmAndDelete"
-                            class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
-                            刪除
-                        </button>
-                        <button type="submit"
-                            :class="{'w-full': !modal.isEdit}"
-                            class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition ml-auto">
-                            儲存行程
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- 購物清單新增 Modal -->
-            <div v-else-if="modal.type === 'shopping'">
-                <h3 class="text-xl font-bold mb-4">新增購物清單項目</h3>
-                <form @submit.prevent="saveShoppingItem">
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">商品名稱</label>
-                        <input type="text" v-model="modal.data.name" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">備註/預計價格</label>
-                        <input type="text" v-model="modal.data.notes"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">圖片上傳</label>
-                        <input type="file" @change="handleImageUpload" accept="image/*"
-                            class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
-                        <p v-if="modal.data.imagePreview" class="text-xs text-green-600 mt-2 flex items-center">
-                            <i data-lucide="check-circle" class="w-3 h-3 mr-1"></i> 圖片已預覽。
-                        </p>
-                    </div>
-                    <button type="submit" class="w-full bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition">
-                        加入清單
-                    </button>
-                </form>
-            </div>
-            
-            <!-- 花費新增/編輯 Modal -->
-             <div v-else-if="modal.type === 'expense'">
-                <h3 class="text-xl font-bold mb-4">{{ modal.isEdit ? '編輯花費記錄' : '新增花費記錄' }}</h3>
-                <form @submit.prevent="saveExpenseItem">
-                    <!-- 類別 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">類別</label>
-                        <select v-model="modal.data.category" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option v-for="cat in expenseCategories" :value="cat">{{ cat }}</option>
-                        </select>
-                    </div>
-                    <!-- 名稱 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">名稱</label>
-                        <input type="text" v-model="modal.data.name" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 金額 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">金額 (JPY)</label>
-                        <input type="number" v-model.number="modal.data.amount" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                     <!-- 日期 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">日期</label>
-                        <input type="date" v-model="modal.data.date" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                    </div>
-                    <!-- 付款方式 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">付款方式</label>
-                        <select v-model="modal.data.paymentMethod" required
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option value="現金">現金</option>
-                            <option value="信用卡">信用卡</option>
-                            <option value="電子支付">電子支付</option>
-                        </select>
-                    </div>
-                    <!-- 備註 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-gray-700">備註</label>
-                        <textarea v-model="modal.data.notes" rows="2"
-                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
-                    </div>
-
-                    <div class="flex justify-between mt-6">
-                        <button v-if="modal.isEdit" type="button" @click="deleteExpense"
-                            class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
-                            刪除
-                        </button>
-                        <button type="submit"
-                            :class="{'w-full': !modal.isEdit}"
-                            class="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition ml-auto">
-                            儲存記錄
-                        </button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- 確認刪除 Modal -->
-            <div v-else-if="modal.type === 'confirmDelete'">
-                <h3 class="text-xl font-bold mb-4 text-red-600">確認刪除</h3>
-                <p class="mb-6">您確定要刪除此行程嗎？此操作不可逆。</p>
-                <div class="flex justify-end space-x-3">
-                    <button @click="closeModal" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition">取消</button>
-                    <button @click="deleteItineraryItem" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">確認刪除</button>
-                </div>
-            </div>
-
+            <!-- Tab: 匯率換算 -->
+            <button @click="currentTab = 'exchange'" :class="tabClass('exchange')" title="匯率換算">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M12 10V18"/><path d="M8 14h8"/></svg>
+            </button>
+            <!-- Tab: 花費 (已移除) -->
         </div>
     </div>
-    <!-- 提示框 (用於模擬 Alert/Confirm) -->
-    <div v-if="alertMessage" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white p-3 rounded-xl shadow-lg z-[70] transition-opacity duration-300">
-        {{ alertMessage }}
+    <!-- -------------------- End Tab Icon Bar -------------------- -->
+
+    <!-- 底部版權/提示資訊 -->
+    <footer class="text-center py-6 text-xs text-primary-text/50">
+        <p>行程由 AI 助手生成。資料由 Firebase Firestore 雲端儲存與即時同步。</p>
+    </footer>
+
+    <!-- -------------------- Modal 區塊 -------------------- -->
+
+    <!-- 行程新增/編輯彈出視窗 -->
+    <div v-if="isItineraryModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl space-y-4">
+            <h3 class="text-xl font-bold text-sepia-brown">{{ isEditing ? '編輯行程' : '新增行程' }}</h3>
+            <form @submit.prevent="saveItineraryItem" class="space-y-3">
+                
+                <input type="text" v-model="form.name" placeholder="名稱 (必填)" required class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                <input type="text" v-model="form.time" placeholder="時間 (例如: 14:00 - 17:00)" required class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                
+                <select v-model="form.category" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    <option disabled value="">請選擇分類 (必填)</option>
+                    <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+                </select>
+
+                <div v-if="form.category === '景點'">
+                    <input type="number" v-model.number="form.ticketPrice" placeholder="門票價格 (JPY)" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                </div>
+                
+                <textarea v-model="form.note" placeholder="特色 & 備註 (例如: 提前預約)" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown"></textarea>
+                
+                <input type="text" v-model="form.mapQuery" placeholder="Google 地圖關鍵字 (用於導航)" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                
+                <div class="flex space-x-3 pt-2">
+                    <button type="button" @click="isItineraryModalOpen = false" class="flex-grow p-3 rounded-xl border border-gray-300 text-primary-text hover:bg-gray-100 transition">取消</button>
+                    <button type="submit" class="flex-grow p-3 rounded-xl bg-sepia-brown text-white hover:bg-sepia-brown/80 transition">{{ isEditing ? '儲存變更' : '新增' }}</button>
+                </div>
+                
+                <button v-if="isEditing" type="button" @click="openConfirmDelete" class="w-full p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition mt-2">刪除行程</button>
+
+            </form>
+        </div>
     </div>
+
+    <!-- 花費新增彈出視窗 (已移除) -->
+    
+    <!-- 自定義確認/刪除彈出視窗 (取代 window.confirm) -->
+    <div v-if="isConfirmModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl space-y-4 text-center">
+            <h3 class="text-xl font-bold text-sepia-brown">確認操作</h3>
+            <p class="text-primary-text">{{ confirmMessage }}</p>
+            <div class="flex space-x-3 pt-2">
+                <button @click="closeConfirmModal" class="flex-grow p-3 rounded-xl border border-gray-300 text-primary-text hover:bg-gray-100 transition">取消</button>
+                <button @click="executeConfirmAction" class="flex-grow p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition">確定</button>
+            </div>
+        </div>
+    </div>
+
 
 </div>
 
-<script>
-    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const app = createApp({
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    // 輔助函數：生成 UUID
+    function generateUUID() {
+        return crypto.randomUUID();
+    }
+
+    createApp({
         setup() {
-            // --- 狀態管理 ---
-            const activeTab = ref('itinerary');
-            const activeDay = ref('2025-12-27');
-            const dragItemIndex = ref(null);
-            const isDragging = ref(false);
-            const alertMessage = ref('');
-            
-            // 天氣資料儲存 (Key: YYYY-MM-DD-City, Value: Google 摘要文字)
-            const weatherSummaries = ref({}); 
-            const isWeatherLoading = ref(false); // 新增載入狀態
+            // -------------------- Firebase 狀態 --------------------
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+            let db = null;
+            let auth = null;
+            const userId = ref(null);
+            const isAuthReady = ref(false);
+
+            // -------------------- 數據狀態 --------------------
+            const currentTab = ref('itinerary');
+            const currentDayId = ref(1);
+            const categories = ['景點', '住宿', '美食', '購物', '航班', '其他'];
 
             // Modal 狀態
-            const modal = ref({
-                isVisible: false,
-                type: '', // 'itinerary', 'shopping', 'expense', 'confirmDelete'
-                isEdit: false,
-                data: null, // 用於儲存或編輯的資料
-                editIndex: null, // 用於編輯/刪除時的索引
-                currentDayDate: null, // 用於新增行程時知道是哪一天
+            const isItineraryModalOpen = ref(false);
+            const isEditing = ref(false);
+            const editingIndex = ref(null);
+
+            // 自定義確認 Modal 狀態
+            const isConfirmModalOpen = ref(false);
+            const confirmMessage = ref('');
+            const confirmAction = ref(null); // 儲存要執行的函數
+
+            // 表單數據
+            const form = ref({});
+
+            // 數據儲存狀態 (從 Firestore 載入)
+            const itinerary = ref({ days: [] }); 
+
+            // 匯率換算狀態
+            const JPY_TO_HKD_RATE = 0.052; // 模擬匯率
+            const jpyAmount = ref(10000);
+            const hkdAmount = ref(jpyAmount.value * JPY_TO_HKD_RATE);
+
+            // -------------------- 實時計算屬性 --------------------
+            const itineraryDays = computed(() => itinerary.value.days || []);
+
+            const currentDay = computed(() => {
+                // 從 itinerary.value.days 中查找
+                return itineraryDays.value.find(day => day.id === currentDayId.value);
             });
 
-            // --- 靜態資料 / 初始行程資訊 ---
-            // 行程分類 (已新增 '交通')
-            const itineraryCategories = ['景點', '住宿', '美食', '購物', '航班', '交通', '其他'];
-            const expenseCategories = ['交通', '飲食', '住宿', '門票', '購物', '其他'];
-
-            // 匯率換算 (已更新為 JPY → HKD)
-            const jpyAmount = ref(0);
-            const mockExchangeRate = 0.053; // New: 1 JPY = 0.053 HKD (Mock rate)
-
-            // 初始數據結構 (包含用戶提供的所有行程)
-            const initialItinerary = {
-                '2025-12-27': {
-                    date: '2025-12-27', city: '姬路', 
-                    dayOfWeek: '六', dayOfMonth: '27',
-                    hotel: { name: 'Richmond Hotel Himeji', address: '兵庫県姫路市野里町2-7' },
-                    items: [
-                        { id: 1, name: '去程航班 MM68', category: '航班', address: '香港國際機場',
-                            details: { departureTime: '1:45', departureAirport: 'HKG', arrivalTime: '6:10', arrivalAirport: 'KIX', flightNumber: 'MM68', airline: 'Peach Aviation' } 
-                        },
-                        { id: 2, name: 'KATE 高速巴士 (KIX → 姬路)', category: '交通', address: '姬路車站',
-                            details: { hours: '約 2 小時多', ticket: '3,700 JPY', notes: '單程票，抵達姬路車站' } 
-                        },
-                        { id: 3, name: 'Richmond Hotel Himeji (入住)', category: '住宿', address: '〒670-0961兵庫県姫路市野里町2-7',
-                            details: { hours: '可先寄放行李', notes: '使用白之城觀光2日券' } 
-                        },
-                        { id: 4, name: '書寫山纜車與圓教寺', category: '景點', address: '圓教寺',
-                            details: { hours: '下午時段', ticket: '纜車+門票組合', notes: '視時間與體力安排' } 
-                        },
-                    ]
-                },
-                '2025-12-28': {
-                    date: '2025-12-28', city: '姬路', 
-                    dayOfWeek: '日', dayOfMonth: '28',
-                    hotel: { name: 'Richmond Hotel Himeji', address: '兵庫県姫路市野里町2-7' },
-                    items: [
-                        { id: 5, name: '姬路城', category: '景點', address: '姬路城',
-                            details: { hours: '9:00 - 17:00', ticket: '1,000 JPY (與好古園套票更優惠)', notes: '世界文化遺產，步行可達' } 
-                        },
-                        { id: 6, name: '好古園', category: '景點', address: '好古園',
-                            details: { hours: '9:00 - 17:00', ticket: '310 JPY', notes: '緊鄰姬路城的日式庭園' } 
-                        },
-                        { id: 7, name: '晚餐：當地特色美食', category: '美食', address: '姬路市區餐廳',
-                            details: { notes: '嘗試姬路特有的食物' } 
-                        },
-                    ]
-                },
-                '2025-12-29': {
-                    date: '2025-12-29', city: '神戶', 
-                    dayOfWeek: '一', dayOfMonth: '29',
-                    hotel: { name: 'BRENZA HOTEL', address: '〒651-0096兵庫県神戸市中央区雲井通6-1-1' },
-                    items: [
-                        { id: 8, name: 'JR 新快速 (姬路 → 三之宮)', category: '交通', address: 'JR三之宮站',
-                            details: { hours: '約 1 小時', notes: '姬路退房後前往' } 
-                        },
-                        { id: 9, name: 'BRENZA HOTEL (寄/放行李)', category: '住宿', address: '〒651-0096兵庫県神戸市中央区雲井通6-1-1',
-                            details: { notes: '三之宮站步行可達' } 
-                        },
-                        { id: 10, name: '午餐：Steakland 神戶館', category: '美食', address: 'Steakland 神戶館',
-                            details: { notes: '必吃神戶牛午餐' } 
-                        },
-                        { id: 11, name: '北野異人館街', category: '景點', address: '北野異人館街',
-                            details: { notes: '搭乘神戶City Loop觀光巴士' } 
-                        },
-                        { id: 12, name: '南京町', category: '景點', address: '南京町',
-                            details: { notes: '日本三大中華街之一' } 
-                        },
-                        { id: 13, name: '神戶港區夜景', category: '景點', address: '神戶港塔',
-                            details: { notes: '欣賞港口夜景' } 
-                        },
-                    ]
-                },
-                '2025-12-30': {
-                    date: '2025-12-30', city: '神戶', 
-                    dayOfWeek: '二', dayOfMonth: '30',
-                    hotel: { name: 'BRENZA HOTEL', address: '〒651-0096兵庫県神戸市中央区雲井通6-1-1' },
-                    items: [
-                        { id: 14, name: '前往六甲山纜車站', category: '交通', address: '六甲山纜車站',
-                            details: { notes: '從三宮搭乘巴士' } 
-                        },
-                        { id: 15, name: '六甲山天覽台與遊覽', category: '景點', address: '六甲山天覽台',
-                            details: { notes: '全日觀光' } 
-                        },
-                        { id: 16, name: '六甲有馬纜車', category: '交通', address: '有馬温泉',
-                            details: { notes: '搭乘纜車下山至有馬溫泉' } 
-                        },
-                        { id: 17, name: '有馬溫泉體驗', category: '其他', address: '有馬温泉',
-                            details: { notes: '體驗足浴或溫泉' } 
-                        },
-                    ]
-                },
-                '2025-12-31': {
-                    date: '2025-12-31', city: '大阪', 
-                    dayOfWeek: '三', dayOfMonth: '31',
-                    hotel: { name: 'Hotel Keihan Yodoyabashi', address: '〒541-0041大阪府大阪市中央区北浜2-4-6' },
-                    items: [
-                        { id: 18, name: 'JR/地鐵 (神戶 → 大阪)', category: '交通', address: '大阪市區',
-                            details: { notes: '神戶退房後前往大阪' } 
-                        },
-                        { id: 19, name: 'Hotel Keihan Yodoyabashi (入住)', category: '住宿', address: '〒541-0041大阪府大阪市中央区北浜2-4-6',
-                            details: { notes: '辦理入住或寄放行李' } 
-                        },
-                        { id: 20, name: 'USJ 跨年倒數派對', category: '景點', address: '日本環球影城',
-                            details: { hours: '17:00 清場後開始，持續至 1/1 21:00', ticket: 'NO LIMIT! 跨年倒數2026派對票', notes: '重中之重！務必全面防寒！' } 
-                        },
-                    ]
-                },
-                '2026-01-01': {
-                    date: '2026-01-01', city: '大阪', 
-                    dayOfWeek: '四', dayOfMonth: '1',
-                    hotel: { name: 'Hotel Keihan Yodoyabashi', address: '〒541-0041大阪府大阪市中央区北浜2-4-6' },
-                    items: [
-                        { id: 21, name: '休整日', category: '其他', address: 'Hotel Keihan Yodoyabashi',
-                            details: { notes: '建議休整或大阪市內輕鬆遊覽' } 
-                        },
-                    ]
-                },
-                '2026-01-02': {
-                    date: '2026-01-02', city: '大阪/返程', 
-                    dayOfWeek: '五', dayOfMonth: '2',
-                    hotel: null, // 無住宿
-                    items: [
-                         { id: 22, name: '大阪海遊館', category: '景點', address: '大阪海遊館',
-                            details: { notes: '白天遊覽景點' } 
-                        },
-                        { id: 23, name: '臨空城 Outlet', category: '購物', address: '臨空城 Outlet',
-                            details: { notes: '機場前一站，適合最後購物' } 
-                        },
-                        { id: 24, name: '前往關西機場 (KIX)', category: '交通', address: '關西國際機場',
-                            details: { notes: '建議最晚於起飛前 3 小時到達' } 
-                        },
-                        { id: 25, name: '回程航班 MM67', category: '航班', address: '關西國際機場',
-                            details: { departureTime: '21:05', departureAirport: 'KIX', arrivalTime: '00:45+1', arrivalAirport: 'HKG', flightNumber: 'MM67', airline: 'Peach Aviation' } 
-                        },
-                    ]
-                },
-            };
-            const itinerary = ref(initialItinerary);
-
-            // 航班資訊 (用於資訊頁)
-            const flights = {
-                go: { departureTime: '1:45', departureAirport: 'HKG', arrivalTime: '6:10', arrivalAirport: 'KIX', duration: '約 4小時25分', flightNumber: 'MM68', airline: 'Peach Aviation' },
-                return: { departureTime: '21:05', departureAirport: 'KIX', arrivalTime: '00:45+1', arrivalAirport: 'HKG', duration: '約 3小時40分', flightNumber: 'MM67', airline: 'Peach Aviation' }
-            };
-
-            // 住宿資訊 (用於資訊頁)
-            const hotels = [
-                { name: 'Richmond Hotel Himeji (姬路)', phone: '079-281-7000 (Mock)', address: '〒670-0961兵庫県姫路市野里町2-7', checkInDate: '12月27日', checkOutDate: '12月29日', navLink: 'https://www.google.com/maps/search/?api=1&query=%E5%85%B5%E5%BA%AB%E7%9C%8C%E5%A7%AC%E8%B7%AF%E5%B8%82%E9%87%8E%E9%87%8C%E7%94%BA2-7' },
-                { name: 'BRENZA HOTEL (神戶三宮)', phone: '078-261-1200 (Mock)', address: '〒651-0096兵庫県神戸市中央区雲井通6-1-1', checkInDate: '12月29日', checkOutDate: '12月31日', navLink: 'https://www.google.com/maps/search/?api=1&query=%E7%A5%9E%E6%88%B6%E5%B8%82%E4%B8%AD%E5%A4%AE%E5%8C%BA%E9%9B%B2%E4%BA%95%E9%80%9A6-1-1' },
-                { name: 'Hotel Keihan Yodoyabashi (大阪)', phone: '06-6202-8611 (Mock)', address: '〒541-0041大阪府大阪市中央区北浜2-4-6', checkInDate: '12月31日', checkOutDate: '1月2日', navLink: 'https://www.google.com/maps/search/?api=1&query=%E5%A4%A7%E9%98%AA%E5%BA%9C%E5%A4%A7%E9%98%AA%E5%B8%82%E4%B8%AD%E5%A4%AE%E5%8C%BA%E5%8C%97%E6%B5%9C2-4-6' },
-            ];
-            
-            // 購物清單 (初始資料)
-            const shoppingList = ref([
-                { id: 1, name: '白色戀人', notes: '北海道限定，但在關西機場可能買到', purchased: false, imagePreview: null },
-                { id: 2, name: '日系美妝品', notes: '藥妝店必買', purchased: true, imagePreview: null },
-            ]);
-
-            // 花費記錄 (初始資料)
-            const expenses = ref([
-                { id: 1, category: '住宿', name: 'Richmond Hotel Himeji', date: '2025-12-27', amount: 30000, paymentMethod: '信用卡', notes: '兩晚費用' },
-                { id: 2, category: '交通', name: 'KATE 巴士車票', date: '2025-12-27', amount: 3700, paymentMethod: '現金', notes: '單程 KIX 到姬路' },
-                { id: 3, category: '飲食', name: 'Steakland 午餐', date: '2025-12-29', amount: 5000, paymentMethod: '信用卡', notes: '神戶牛套餐' },
-                { id: 4, category: '門票', name: '姬路城門票', date: '2025-12-28', amount: 1000, paymentMethod: '現金', notes: '單人票' },
-            ]);
-
-
-            // --- Google Search Weather API 方法 ---
-            
-            // Google Search API 呼叫 (帶有指數退避機制)
-            async function fetchWeatherFromGoogle(city, date, retries = 3, delay = 1000) {
-                // 使用 YYYY-MM-DD-City 作為緩存 Key
-                const cacheKey = `${date}-${city}`;
-                if (weatherSummaries.value[cacheKey]) {
-                    return; // 已有緩存
+            const filterCategory = ref('');
+            const filteredItems = computed(() => {
+                let items = currentDay.value ? currentDay.value.items : [];
+                if (filterCategory.value) {
+                    items = items.filter(item => item.category === filterCategory.value);
                 }
+                return items;
+            });
+            
+            // -------------------- Firebase 核心功能 --------------------
+            
+            // 取得 Firestore Document Reference
+            const getItineraryDocRef = () => {
+                // 公共協作路徑: /artifacts/{appId}/public/data/itineraries/main-trip
+                return doc(db, `artifacts/${appId}/public/data/itineraries`, 'main-trip');
+            };
+
+            // 儲存/更新行程 (將整個行程物件寫入單一文件)
+            const saveItineraryData = async () => {
+                if (!db || !userId.value) return;
+                try {
+                    await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
+                    // console.log("行程資料已成功同步到 Firestore!");
+                } catch (e) {
+                    console.error("同步行程資料到 Firestore 失敗: ", e);
+                }
+            };
+
+            // 設置即時監聽器
+            const setupRealtimeListeners = () => {
+                if (!db || !userId.value) return;
                 
-                isWeatherLoading.value = true;
-                const systemPrompt = "你是一位專業的旅遊氣象專家。請根據 Google 搜尋到的資訊，為提供的日期和城市，用中文提供一個兩句話以內的簡潔天氣預報摘要，包含溫度範圍、天氣狀況，以及適合的衣著建議。";
-                const userQuery = `尋找 ${date} ${city} 的天氣預報。`;
-                const apiKey = ""; 
-                // 使用 gemini-2.5-flash-preview-09-2025 進行搜尋和摘要
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    // 啟用 Google Search Grounding
-                    tools: [{ "google_search": {} }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                };
-
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
+                // 1. 行程資料監聽 (單一文件)
+                onSnapshot(getItineraryDocRef(), (docSnapshot) => {
+                    if (docSnapshot.exists()) {
+                        const data = docSnapshot.data();
+                        itinerary.value = data;
+                        // 確保載入後至少有一天的數據，如果沒有，則初始化
+                        if (!itinerary.value.days || itinerary.value.days.length === 0) {
+                            itinerary.value.days = initializeItineraryData();
                         }
-                        
-                        const result = await response.json();
-                        // 從結果中提取文字摘要
-                        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "無法取得 Google 天氣摘要。請稍後再試。";
-                        
-                        weatherSummaries.value[cacheKey] = text;
-                        isWeatherLoading.value = false;
-                        return;
-
-                    } catch (error) {
-                        console.error(`Gemini API 呼叫失敗，重試中 (${i + 1}/${retries}):`, error);
-                        if (i === retries - 1) {
-                            // 達到最大重試次數後，更新 UI 狀態並顯示失敗訊息
-                            showSuccessAlert(`無法取得 ${city} ${date} 的天氣資料。`);
-                            weatherSummaries.value[cacheKey] = "天氣資訊加載失敗。";
-                            isWeatherLoading.value = false;
-                            return;
-                        }
-                        // 指數退避延遲
-                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                    } else {
+                        // 如果文件不存在 (第一次使用)，則寫入初始數據
+                        itinerary.value.days = initializeItineraryData();
+                        saveItineraryData();
                     }
-                }
-            }
-
-
-            // --- Computed Properties ---
-
-            // 行程日期的陣列 (用於橫向滑動選單)
-            const itineraryDays = computed(() => {
-                const dayMap = { 'Sat': '六', 'Sun': '日', 'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五' };
-                return Object.keys(initialItinerary).map(dateKey => {
-                    const dateObj = new Date(dateKey);
-                    // 修正日期物件，避免時區問題導致日期錯誤
-                    dateObj.setHours(12, 0, 0, 0); 
-                    const dayOfWeekStr = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                    return {
-                        date: dateKey,
-                        dayOfWeek: dayMap[dayOfWeekStr],
-                        dayOfMonth: dateObj.getDate()
-                    };
+                }, (error) => {
+                    console.error("監聽行程資料失敗: ", error);
                 });
-            });
-
-            // 當前顯示的行程
-            const currentDayItinerary = computed(() => itinerary.value[activeDay.value] || null);
-            
-            // 根據當前日期和城市，提取相關天氣摘要
-            const currentDayWeatherSummary = computed(() => {
-                if (!currentDayItinerary.value || !currentDayItinerary.value.city) {
-                    return null;
-                }
-                const city = currentDayItinerary.value.city;
-                const date = activeDay.value; // 'YYYY-MM-DD'
-                const cacheKey = `${date}-${city}`;
                 
-                // 如果正在載入中，或已經載入但沒有內容，顯示載入/失敗訊息
-                if (isWeatherLoading.value && !weatherSummaries.value[cacheKey]) {
-                    return null;
-                }
+                // 註釋: 花費清單監聽已移除
+            };
+
+            // -------------------- 初始化與認證 --------------------
+            const initFirebaseAndAuth = async () => {
+                // 設置日誌級別為 Debug
+                setLogLevel('Debug');
                 
-                return weatherSummaries.value[cacheKey] || null;
-            });
-
-
-            // 匯率換算結果 (已更名為 hkdAmount)
-            const hkdAmount = computed(() => {
-                if (jpyAmount.value > 0) {
-                    return (jpyAmount.value * mockExchangeRate).toFixed(2);
-                }
-                return '0.00';
-            });
-
-            // 總花費
-            const totalExpenses = computed(() => {
-                return expenses.value.reduce((sum, item) => sum + item.amount, 0);
-            });
-
-
-            // 監聽 activeDay 的變化，並自動呼叫 Google Search API
-            watch(activeDay, (newDay) => {
-                if (itinerary.value[newDay] && itinerary.value[newDay].city) {
-                    const city = itinerary.value[newDay].city;
-                    // 在日期切換時請求新的天氣摘要
-                    fetchWeatherFromGoogle(city, newDay);
-                }
-            }, { immediate: true }); // 在初始化時也執行一次
-
-            // --- 介面 Methods ---
-
-            // Tab 樣式 (浮動在 Banner 右下方)
-            const tabClass = (tabName) => {
-                const base = 'p-3 rounded-full shadow-lg transition duration-200';
-                if (activeTab.value === tabName) {
-                    return `${base} bg-white text-amber-600 ring-4 ring-amber-200`;
-                }
-                return `${base} bg-gray-50 text-gray-400 hover:bg-gray-100`;
-            };
-
-            // 底部 Tab Bar 樣式 (固定在底部)
-            const tabBarClass = (tabName) => {
-                 const base = 'flex flex-col items-center p-2 rounded-lg transition duration-200';
-                if (activeTab.value === tabName) {
-                    return `${base} text-amber-600`;
-                }
-                return `${base} text-gray-500 hover:text-amber-500`;
-            };
-
-            // 設定當前分頁
-            const setActiveTab = (tabName) => {
-                activeTab.value = tabName;
-                // 確保在切換回行程頁時，圖標會被重新渲染
-                nextTick(() => {
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
-                });
-            };
-
-            // 設定當前日期
-            const setActiveDay = (date) => {
-                activeDay.value = date;
-            };
-
-            // 開啟 Google Maps 導航
-            const openNavigation = (name, address) => {
-                if (!address || currentDayItinerary.value.items.find(i => i.name === name).category === '航班') {
-                    showSuccessAlert(`正在查看 ${name} 的資訊...`);
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.error("Firebase 配置為空，無法初始化。");
                     return;
                 }
-                const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-                window.open(url, '_blank');
-            };
 
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
 
-            // --- 拖曳排序邏輯 ---
-            const dragStart = (index) => {
-                const draggedItem = currentDayItinerary.value.items[index];
-                if (draggedItem.category === '航班' || (activeDay.value === '2025-12-27' && index === 0)) {
-                    // 航班或第一天第一個行程不可拖曳
-                    event.preventDefault();
-                    return;
-                }
-                dragItemIndex.value = index;
-                isDragging.value = true;
-            };
-
-            const dropItem = (event) => {
-                isDragging.value = false;
-                event.preventDefault();
-                
-                // 尋找拖曳到的目標元素索引
-                const targetElement = event.target.closest('.bg-white.p-4.rounded-xl');
-                if (!targetElement) {
-                     dragItemIndex.value = null;
-                     return;
-                }
-                const dropIndex = Array.from(event.currentTarget.children).findIndex(child => child.contains(targetElement));
-                
-                if (dropIndex !== -1 && dragItemIndex.value !== null && dragItemIndex.value !== dropIndex) {
-                    const items = currentDayItinerary.value.items;
-                    const draggedItem = items[dragItemIndex.value];
-
-                    // 目標元素如果是航班也不可置換
-                    const targetItem = items[dropIndex];
-                    if (targetItem.category === '航班' || (activeDay.value === '2025-12-27' && dropIndex === 0)) {
-                        showSuccessAlert('航班資訊不可作為拖曳目標！');
-                        dragItemIndex.value = null;
-                        return;
+                    // 嘗試使用自定義 token 登入，如果沒有則匿名登入
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
                     }
                     
-                    // 從陣列中移除並重新插入
-                    items.splice(dragItemIndex.value, 1);
-                    items.splice(dropIndex, 0, draggedItem);
-                    showSuccessAlert('行程排序已更新。');
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId.value = user.uid; // 設置用戶 ID
+                            isAuthReady.value = true;
+                            setupRealtimeListeners(); // 登入成功後開始監聽
+                        } else {
+                            userId.value = null;
+                            isAuthReady.value = true; // 即使匿名登入失敗，也標記為已檢查
+                            console.log("用戶未登入。");
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Firebase 初始化或認證失敗:", error);
+                    isAuthReady.value = true;
                 }
-                dragItemIndex.value = null;
             };
 
-            // --- Modal 處理 ---
-            const resetModal = () => {
-                modal.value = {
-                    isVisible: false,
-                    type: '',
-                    isEdit: false,
-                    data: null,
-                    editIndex: null,
-                    currentDayDate: null,
-                };
+            // -------------------- 方法 --------------------
+
+            // 樣式輔助方法
+            const tabClass = (tabName) => {
+                const base = 'p-2 rounded-full transition duration-200';
+                return currentTab.value === tabName
+                    ? `${base} bg-soft-green text-sepia-brown`
+                    : `${base} text-primary-text/60 hover:text-sepia-brown`;
+            };
+
+            // 日期輔助方法
+            const getDayOfWeek = (date) => new Date(date).toLocaleDateString('zh-TW', { weekday: 'short' });
+            const getDayOfMonth = (date) => new Date(date).getDate();
+
+            const selectDay = (dayId) => {
+                currentDayId.value = dayId;
+                filterCategory.value = ''; // 切換日期時重置分類
+            };
+
+            const getMapLink = (query) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
+            const calculateExchange = () => {
+                hkdAmount.value = jpyAmount.value * JPY_TO_HKD_RATE;
+            };
+
+            // -------------------- 自定義確認 Modal 邏輯 (取代 window.confirm) --------------------
+            const openConfirmModal = (message, action) => {
+                confirmMessage.value = message;
+                confirmAction.value = action;
+                isConfirmModalOpen.value = true;
+            };
+
+            const closeConfirmModal = () => {
+                isConfirmModalOpen.value = false;
+                confirmMessage.value = '';
+                confirmAction.value = null;
+            };
+
+            const executeConfirmAction = () => {
+                if (confirmAction.value) {
+                    confirmAction.value();
+                }
+                closeConfirmModal();
             };
             
-            const closeModal = () => {
-                resetModal();
+            const openConfirmDelete = () => {
+                openConfirmModal('確定要刪除此行程嗎？此操作無法復原。', deleteItineraryItem);
             };
 
-            // 行程新增/編輯
-            const openNewModal = (date) => {
-                modal.value = {
-                    isVisible: true,
-                    type: 'itinerary',
-                    isEdit: false,
-                    data: { id: Date.now(), name: '', category: '景點', address: '', details: { hours: '', ticket: '', notes: '' } },
-                    currentDayDate: date,
-                };
+            // -------------------- 行程 CRUD --------------------
+            const openAddModal = () => {
+                form.value = { id: generateUUID(), name: '', time: '', category: categories[0], note: '', mapQuery: '', ticketPrice: null, travelTime: '30分鐘', travelModeIcon: '🚶' };
+                isEditing.value = false;
+                isItineraryModalOpen.value = true;
             };
 
-            const openEditModal = (item, date) => {
-                const index = itinerary.value[date].items.findIndex(i => i.id === item.id);
-                if (index === -1) return;
-                
-                // 航班不可編輯
-                if (item.category === '航班') {
-                     showSuccessAlert('航班資訊請至「資訊」頁面查看，此處不可編輯。');
-                     return;
-                }
-
-                modal.value = {
-                    isVisible: true,
-                    type: 'itinerary',
-                    isEdit: true,
-                    data: JSON.parse(JSON.stringify(item)), // 深度複製
-                    editIndex: index,
-                    currentDayDate: date,
-                };
+            const openEditModal = (item, index) => {
+                form.value = { ...item }; // 複製當前項目
+                editingIndex.value = index;
+                isEditing.value = true;
+                isItineraryModalOpen.value = true;
             };
 
             const saveItineraryItem = () => {
-                const dateKey = modal.value.currentDayDate;
-                if (!dateKey || !modal.value.data) return;
+                if (!currentDay.value) return;
 
-                const items = itinerary.value[dateKey].items;
-
-                if (modal.value.isEdit) {
-                    // 編輯模式：替換舊項目
-                    items[modal.value.editIndex] = modal.value.data;
-                    showSuccessAlert('行程已更新！');
-                } else {
-                    // 新增模式：加入新項目
-                    items.push(modal.value.data);
-                    showSuccessAlert('新行程已加入！');
-                }
+                if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
                 
-                closeModal();
-            };
+                // 模擬交通資訊 (非實時計算)
+                if (!form.value.travelTime || form.value.travelTime === '0分鐘') {
+                    form.value.travelTime = '約 30 分鐘';
+                    form.value.travelModeIcon = form.value.category === '住宿' ? '🚌' : '🚶';
+                }
 
-            const confirmAndDelete = () => {
-                modal.value.type = 'confirmDelete'; // 切換到確認刪除視窗
+                if (isEditing.value) {
+                    // 更新現有項目
+                    currentDay.value.items[editingIndex.value] = form.value;
+                } else {
+                    // 新增項目
+                    currentDay.value.items.push(form.value);
+                    // 確保排序後再儲存
+                    currentDay.value.items.sort((a, b) => a.time.localeCompare(b.time));
+                }
+
+                saveItineraryData(); // 儲存到 Firestore
+                isItineraryModalOpen.value = false;
             };
 
             const deleteItineraryItem = () => {
-                const dateKey = modal.value.currentDayDate;
-                const index = modal.value.editIndex;
-                if (dateKey && index !== null) {
-                    itinerary.value[dateKey].items.splice(index, 1);
-                    showSuccessAlert('行程已刪除。');
-                }
-                closeModal(); // 關閉所有 Modal
-            };
-
-
-            // 購物清單新增
-            const openShoppingModal = () => {
-                modal.value = {
-                    isVisible: true,
-                    type: 'shopping',
-                    data: { id: Date.now(), name: '', notes: '', purchased: false, imagePreview: null },
-                };
-            };
-            
-            const handleImageUpload = (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        modal.value.data.imagePreview = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
+                if (currentDay.value && editingIndex.value !== null) {
+                    currentDay.value.items.splice(editingIndex.value, 1);
+                    saveItineraryData(); // 儲存到 Firestore
+                    isItineraryModalOpen.value = false;
                 }
             };
-
-            const saveShoppingItem = () => {
-                if (modal.value.data.name) {
-                    shoppingList.value.push(modal.value.data);
-                    showSuccessAlert('商品已加入購物清單！');
-                }
-                closeModal();
-            };
             
-            const removeShoppingItem = (index) => {
-                 // 使用自定義模態框代替 window.confirm
-                 if (window.confirm('確定要刪除此購物項目嗎？')) {
-                    shoppingList.value.splice(index, 1);
-                    showSuccessAlert('購物項目已移除。');
-                 }
-            };
-            
+            // 註釋: 花費 CRUD 邏輯已移除
 
-            // 花費記錄
-            const openExpenseModal = (expense, index) => {
-                const today = new Date().toISOString().split('T')[0];
-                modal.value = {
-                    isVisible: true,
-                    type: 'expense',
-                    isEdit: !!expense,
-                    editIndex: index,
-                    data: expense ? JSON.parse(JSON.stringify(expense)) : { 
-                        id: Date.now(), 
-                        category: '飲食', 
-                        name: '', 
-                        date: today, 
-                        amount: null, 
-                        paymentMethod: '現金', 
-                        notes: '' 
-                    },
-                };
-            };
-            
-            const saveExpenseItem = () => {
-                if (modal.value.isEdit) {
-                    expenses.value[modal.value.editIndex] = modal.value.data;
-                    showSuccessAlert('花費記錄已更新！');
-                } else {
-                    expenses.value.unshift(modal.value.data); // 新紀錄放最前面
-                    showSuccessAlert('花費記錄已新增！');
-                }
-                closeModal();
-            };
-            
-            const deleteExpense = () => {
-                 // 使用自定義模態框代替 window.confirm
-                 if (window.confirm('確定要刪除此花費記錄嗎？')) {
-                    expenses.value.splice(modal.value.editIndex, 1);
-                    showSuccessAlert('花費記錄已刪除。');
-                    closeModal();
-                 }
-            };
-
-            const expenseCategoryColor = (category) => {
-                const colors = {
-                    '交通': 'border-blue-500',
-                    '飲食': 'border-red-500',
-                    '住宿': 'border-emerald-500',
-                    '門票': 'border-purple-500',
-                    '購物': 'border-orange-500',
-                    '其他': 'border-gray-500',
-                };
-                return colors[category] || 'border-gray-300';
+            // -------------------- 初始數據 --------------------
+            const initializeItineraryData = () => {
+                // 初始化原始行程數據，已包含模擬交通、分類和天氣
+                return [
+                    { id: 1, date: '2025-12-27', title: '抵達與姬路遊', weather: { icon: '☀️', temp: 10, feelsLike: 8, location: '姬路' }, items: [
+                        { id: generateUUID(), time: '01:45 - 06:10', name: '香港 HKG → KIX (MM 68)', category: '航班', note: '領取行李', mapQuery: '關西國際機場 KIX', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 68' },
+                        { id: generateUUID(), time: '08:50 - 11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路站', travelTime: '150分鐘', travelModeIcon: '🚌' },
+                        { id: generateUUID(), time: '11:10 - 12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: 'Richmond Hotel Himeji', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '14:00 - 17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '書寫山圓教寺', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
+                        { id: generateUUID(), time: '19:30 onwards', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路站 美食', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                    ]},
+                    { id: 2, date: '2025-12-28', title: '姬路深度遊', weather: { icon: '🌤️', temp: 12, feelsLike: 10, location: '姬路' }, items: [
+                        { id: generateUUID(), time: '09:00 - 12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路城', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '13:30 - 16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '好古園', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '18:30 onwards', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路 美食推薦', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                    ]},
+                    { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', weather: { icon: '☁️', temp: 14, feelsLike: 12, location: '神戶' }, items: [
+                        { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 $\rightarrow$ 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶三宮站', travelTime: '70分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '12:30 - 14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: 'Steakland Kobe', travelTime: '10分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '14:00 - 19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶三宮中心街', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '19:00 - 20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶 馬賽克廣場', travelTime: '20分鐘', travelModeIcon: '🚌' },
+                    ]},
+                    { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', weather: { icon: '🌨️', temp: 5, feelsLike: 3, location: '六甲山' }, items: [
+                        { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 $\rightarrow$ 六甲山頂', category: '交通', note: 'JR $\rightarrow$ 巴士 $\rightarrow$ 纜車', mapQuery: '六甲山頂', travelTime: '90分鐘', travelModeIcon: '🚌' },
+                        { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 $\rightarrow$ 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '有馬溫泉', travelTime: '30分鐘', travelModeIcon: '🚠' },
+                        { id: generateUUID(), time: '14:00 - 17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '有馬溫泉 金之湯', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
+                        { id: generateUUID(), time: '17:30 - 19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶三宮站', travelTime: '60分鐘', travelModeIcon: '🚌' },
+                    ]},
+                    { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', weather: { icon: '🎆', temp: 10, feelsLike: 9, location: '大阪' }, items: [
+                        { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 $\rightarrow$ 淀屋橋', category: '交通', note: '阪神 $\rightarrow$ 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '13:00 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '日本環球影城', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
+                    ]},
+                    { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', weather: { icon: '🌤️', temp: 10, feelsLike: 8, location: '大阪' }, items: [
+                        { id: generateUUID(), time: '02:00 - 06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '超級任天堂世界', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
+                        { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR $\rightarrow$ 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '10:00 - 16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '淀屋橋京阪飯店', travelTime: '0分鐘', travelModeIcon: '🛌' },
+                        { id: generateUUID(), time: '16:00 - 18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '中之島公園', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                    ]},
+                    { id: 7, date: '2026-01-02', title: '觀光與返程日', weather: { icon: '☁️', temp: 13, feelsLike: 11, location: '大阪' }, items: [
+                        { id: generateUUID(), time: '09:30 - 12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪海遊館', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
+                        { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 $\rightarrow$ 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '臨空城 Premium Outlet', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '14:30 - 18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '臨空城 Premium Outlet', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                        { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 $\rightarrow$ KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '關西國際機場 KIX', travelTime: '5分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '21:05', name: 'KIX $\rightarrow$ 香港 HKG (MM 67)', category: '航班', note: '預留充足時間辦理手續', mapQuery: '關西國際機場 KIX', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 67' },
+                    ]}
+                ];
             };
 
-
-            // 提示框 (取代 alert())
-            const showSuccessAlert = (message) => {
-                alertMessage.value = message;
-                setTimeout(() => {
-                    alertMessage.value = '';
-                }, 2000);
-            };
-
-
-            // --- Lifecycle Hook ---
+            // -------------------- 初始化 --------------------
             onMounted(() => {
-                // 初始化 Lucide Icons
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-                // 設定當前日期為行程的第一天 (會觸發 watch 取得天氣)
-                const firstDay = Object.keys(initialItinerary)[0];
-                setActiveDay(firstDay);
-                
-                // 預先載入所有行程日期的天氣摘要
-                Object.keys(initialItinerary).forEach(date => {
-                    const city = initialItinerary[date].city;
-                    if(city) fetchWeatherFromGoogle(city, date);
-                });
+                initFirebaseAndAuth();
+                // 確保在載入後，匯率計算值是正確的
+                calculateExchange(); 
             });
 
-
             return {
-                activeTab,
-                activeDay,
-                itineraryDays,
-                currentDayItinerary,
-                currentDayWeatherSummary, // 已更新為 Google 摘要
-                isWeatherLoading,
-                itineraryCategories,
-                expenseCategories,
-                flights,
-                hotels,
-                shoppingList,
-                expenses,
+                currentTab,
+                currentDayId,
+                categories,
+                isItineraryModalOpen,
+                isEditing,
+                form,
+                itineraryDays, // 暴露計算屬性
                 jpyAmount,
-                mockExchangeRate, // 新增到 return 以便在 HTML 中顯示
-                hkdAmount, // 已從 twdAmount 更名為 hkdAmount
-                totalExpenses,
-                dragItemIndex,
-                isDragging,
-                modal,
-                alertMessage,
-
-                setActiveTab,
-                setActiveDay,
+                hkdAmount,
                 tabClass,
-                tabBarClass,
-                openNavigation,
-                dragStart,
-                dropItem,
-                openNewModal,
+                getDayOfWeek,
+                getDayOfMonth,
+                selectDay,
+                currentDay,
+                filterCategory,
+                filteredItems,
+                getMapLink,
+                calculateExchange,
+                openAddModal,
                 openEditModal,
                 saveItineraryItem,
-                confirmAndDelete,
-                deleteItineraryItem,
-                closeModal,
-                openShoppingModal,
-                handleImageUpload,
-                saveShoppingItem,
-                removeShoppingItem,
-                openExpenseModal,
-                saveExpenseItem,
-                deleteExpense,
-                expenseCategoryColor,
+                openConfirmDelete, // 新的確認刪除方法
+                // Firebase 狀態
+                userId,
+                isAuthReady,
+                // 自定義確認 Modal 
+                isConfirmModalOpen,
+                confirmMessage,
+                closeConfirmModal,
+                executeConfirmAction
             };
         }
-    });
-
-    app.mount('#trip-app');
-
-    // 延遲初始化 Lucide Icons，確保所有 DOM 元素都已渲染
-    window.addEventListener('load', () => {
-         if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    });
-
+    }).mount('#app');
 </script>
+
 </body>
 </html>
