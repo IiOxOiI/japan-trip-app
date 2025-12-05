@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>關西跨年豪華行程 (日系極簡風 - 強化錯誤處理)</title>
+    <title>關西跨年豪華行程 (日系極簡風 - 硬編碼修復)</title>
     <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Vue.js 3 CDN -->
@@ -316,11 +316,36 @@
     createApp({
         setup() {
             // ----------------------------------------------------
-            // 🔥🔥🔥  Canvas 環境變數處理  🔥🔥🔥
+            // 🔥🔥🔥  Canvas 環境變數處理與硬編碼備用配置  🔥🔥🔥
             // ----------------------------------------------------
-            // 取得環境提供的 Firebase 配置和 Auth Token
-            const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-            const firebaseConfig = JSON.parse(firebaseConfigString);
+            
+            // 您的硬編碼配置 (防止環境變數解析失敗)
+            const USER_FIREBASE_CONFIG = {
+                apiKey: "AIzaSyDhH3pTVHmMesGYRnLxXMSOAszXbSuA9fA",
+                authDomain: "kansaitripplanner.firebaseapp.com",
+                projectId: "kansaitripplanner",
+                storageBucket: "kansaitripplanner.firebasestorage.app",
+                messagingSenderId: "547034174320",
+                appId: "1:547034174320:web:fe6d1a655410fa951075b5",
+                measurementId: "G-Q3341W5VVY"
+            };
+
+            // 1. 嘗試解析環境變數
+            const envConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+            let firebaseConfig = {};
+            try {
+                firebaseConfig = JSON.parse(envConfigString);
+            } catch (e) {
+                console.warn("解析環境變數 __firebase_config 失敗，將使用硬編碼配置作為 fallback。", e);
+            }
+
+            // 2. 檢查解析結果。如果無效，則使用硬編碼配置。
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                console.log("環境配置無效，已切換使用硬編碼 Firebase 配置。");
+                firebaseConfig = USER_FIREBASE_CONFIG;
+            }
+            
+            // 取得其他環境變數
             const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // 應用程式 ID
 
@@ -329,7 +354,7 @@
             const userId = ref(null);
             const isAuthReady = ref(false);
             const isTemporaryId = ref(false); 
-            const firebaseInitialized = ref(false); // 新增狀態：追蹤 Firebase 是否成功初始化
+            const firebaseInitialized = ref(false); // 追蹤 Firebase 是否成功初始化
 
             // -------------------- 數據狀態 --------------------
             const currentTab = ref('itinerary');
@@ -428,7 +453,6 @@
 
             // -------------------- 強化初始化與認證邏輯 --------------------
             const initFirebaseAndAuth = async () => {
-                // 設置 Debug 級別的日誌，有助於診斷連線失敗原因
                 setLogLevel('Debug');
                 isAuthReady.value = false;
                 userId.value = null;
@@ -438,9 +462,10 @@
                 isTemporaryId.value = false;
 
                 try {
-                    // 1. 嘗試初始化 Firebase 應用程式
+                    // 1. 嘗試初始化 Firebase 應用程式 (使用解析或備用配置)
                     if (!firebaseConfig.apiKey) {
-                        throw new Error("配置錯誤: __firebase_config 遺失或無效的 apiKey。");
+                         // 由於前面已經檢查過，這裡應該不會發生，但作為防護
+                        throw new Error("配置錯誤: 遺失或無效的 apiKey。");
                     }
 
                     const app = initializeApp(firebaseConfig);
@@ -451,11 +476,11 @@
                     // 2. 嘗試認證
                     try {
                         if (initialAuthToken) {
-                            // 優先使用自訂令牌登入 (Canvas 環境的最佳實踐)
+                            // 優先使用自訂令牌登入
                             await signInWithCustomToken(auth, initialAuthToken);
                             console.log("認證成功: 使用自訂令牌登入。");
                         } else {
-                            // 令牌不存在時，退回到匿名登入
+                            // 退回到匿名登入
                             await signInAnonymously(auth);
                             console.log("認證成功: 匿名登入。");
                         }
@@ -464,7 +489,7 @@
                         isTemporaryId.value = false; // 已成功認證
 
                     } catch (authError) {
-                        // 認證失敗 (常見於匿名登入被安全規則阻擋)
+                        // 認證失敗
                         console.error("Firebase Auth 認證失敗 (進入非認證模式):", authError);
                         
                         // 優雅降級處理：生成一個臨時 ID
@@ -474,10 +499,10 @@
 
                     // 3. 設置 ID 和監聽器
                     userId.value = currentUid; 
-                    setupRealtimeListeners(currentUid); // 設置監聽器 (即使是臨時 ID 也嘗試只讀訪問)
+                    setupRealtimeListeners(currentUid); 
 
                 } catch (initError) {
-                    // 應用程式初始化失敗 (配置問題)
+                    // 應用程式初始化失敗 (配置問題或網路問題)
                     console.error("Firebase App 初始化失敗:", initError);
                     
                     // 最差情況處理：確保 UI 不顯示 N/A
@@ -624,7 +649,7 @@
                     { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', weather: { icon: '🎆', temp: 10, feelsLike: 9, location: '大阪' }, items: [
                         { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 $\rightarrow$ 淀屋橋', category: '交通', note: '阪神 $\rightarrow$ 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '13:00 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '日本環球影城', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
                     ]},
                     { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', weather: { icon: '🌤️', temp: 10, feelsLike: 8, location: '大阪' }, items: [
@@ -645,7 +670,7 @@
 
             // -------------------- 初始化 --------------------
             onMounted(() => {
-                // 在這裡呼叫 initFirebaseAndAuth，它會使用從環境變數 '__firebase_config' 中取得的配置
+                // 呼叫初始化函數
                 initFirebaseAndAuth(); 
                 calculateExchange(); 
             });
