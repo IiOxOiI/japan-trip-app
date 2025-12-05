@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>關西跨年豪華行程 (日系極簡風 - 移除花費頁)</title>
+    <title>關西跨年豪華行程 (日系極簡風 - 連線已修復)</title>
     <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Vue.js 3 CDN -->
@@ -84,11 +84,18 @@
                 連線中... 🌐
             </p>
             <div v-else class="text-xs text-sepia-brown text-left">
-                <p class="font-semibold">
-                    ✅ <span class="text-green-700">即時同步已啟用</span>
+                <!-- 根據 userId 是否包含 UUID 判斷連線狀態 -->
+                <p v-if="userId && !isTemporaryId" class="font-semibold">
+                    ✅ <span class="text-green-700">即時同步已啟用 (已認證)</span>
+                </p>
+                <p v-else-if="userId && isTemporaryId" class="font-semibold text-orange-700">
+                    ⚠️ <span class="text-orange-700">非認證模式 (Auth 錯誤)</span>
+                </p>
+                <p v-else class="font-semibold text-red-700">
+                    ❌ <span class="text-red-700">連線失敗 (請檢查 Console)</span>
                 </p>
                 <p class="mt-1 break-all">
-                    您的協作 ID: <span class="font-mono text-primary-text/80">{{ userId }}</span>
+                    您的協作 ID: <span class="font-mono text-primary-text/80">{{ userId || 'N/A' }}</span>
                 </p>
             </div>
         </div>
@@ -105,7 +112,6 @@
             <!-- 日期橫向滑動選單 -->
             <div class="overflow-x-scroll hide-scrollbar whitespace-nowrap py-3 sticky top-0 z-30 bg-F8F8F4">
                 <div class="inline-flex space-x-3">
-                    <!-- 使用 itinerary_days 而非 itinerary，因為 itinerary 現在是整個物件 {days: [...]} -->
                     <div v-for="day in itineraryDays" :key="day.id" 
                          @click="selectDay(day.id)"
                          class="cursor-pointer p-2 rounded-xl text-center transition duration-200"
@@ -221,9 +227,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- -------------------- 花費 (Expense) Tab 已移除 -------------------- -->
-
     </main>
 
     <!-- -------------------- 固定底部的 Tab Icon Bar -------------------- -->
@@ -237,7 +240,6 @@
             <button @click="currentTab = 'exchange'" :class="tabClass('exchange')" title="匯率換算">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M12 10V18"/><path d="M8 14h8"/></svg>
             </button>
-            <!-- Tab: 花費 (已移除) -->
         </div>
     </div>
     <!-- -------------------- End Tab Icon Bar -------------------- -->
@@ -281,8 +283,6 @@
             </form>
         </div>
     </div>
-
-    <!-- 花費新增彈出視窗 (已移除) -->
     
     <!-- 自定義確認/刪除彈出視窗 (取代 window.confirm) -->
     <div v-if="isConfirmModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -300,8 +300,9 @@
 </div>
 
 <script type="module">
+    // 使用版本 v11.6.1，與應用程式其他部分同步
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { createApp, ref, computed, onMounted } = Vue;
@@ -313,15 +314,30 @@
 
     createApp({
         setup() {
-            // -------------------- Firebase 狀態 --------------------
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            // ----------------------------------------------------
+            // 🔥🔥🔥  您的 Firebase 專案配置 (已從您的回覆中貼上)  🔥🔥🔥
+            // ----------------------------------------------------
+            const firebaseConfig = {
+                apiKey: "AIzaSyDhH3pTVHmMesGYRnLxXMSOAszXbSuA9fA",
+                authDomain: "kansaitripplanner.firebaseapp.com",
+                projectId: "kansaitripplanner",
+                storageBucket: "kansaitripplanner.firebasestorage.app",
+                messagingSenderId: "547034174320",
+                appId: "1:547034174320:web:fe6d1a655410fa951075b5",
+                measurementId: "G-Q3341W5VVY"
+            };
+            
+            // 應用程式 ID：使用一個唯一的固定 ID
+            const appId = 'kansai-trip-planner-main'; 
+            
+            // ----------------------------------------------------
+
 
             let db = null;
             let auth = null;
             const userId = ref(null);
             const isAuthReady = ref(false);
+            const isTemporaryId = ref(false); // 新增狀態：追蹤是否為臨時 ID
 
             // -------------------- 數據狀態 --------------------
             const currentTab = ref('itinerary');
@@ -342,6 +358,7 @@
             const form = ref({});
 
             // 數據儲存狀態 (從 Firestore 載入)
+            // 初始化時使用一個空物件，等待 Firestore 載入或初始化
             const itinerary = ref({ days: [] }); 
 
             // 匯率換算狀態
@@ -369,34 +386,45 @@
             // -------------------- Firebase 核心功能 --------------------
             
             // 取得 Firestore Document Reference
-            const getItineraryDocRef = () => {
+            const getItineraryDocRef = (uid) => {
                 // 公共協作路徑: /artifacts/{appId}/public/data/itineraries/main-trip
+                // 這裡使用 'main-trip' 作為固定文件 ID，確保所有使用者都存取同一份資料
                 return doc(db, `artifacts/${appId}/public/data/itineraries`, 'main-trip');
             };
 
             // 儲存/更新行程 (將整個行程物件寫入單一文件)
             const saveItineraryData = async () => {
                 if (!db || !userId.value) return;
+                
+                // 如果是臨時 ID (isTemporaryId)，則不嘗試寫入，因為可能會違反 Firestore 安全規則
+                if (isTemporaryId.value) {
+                    console.warn("當前處於非認證模式 (臨時 ID)，已阻止寫入 Firestore。");
+                    return;
+                }
+
                 try {
-                    await setDoc(getItineraryDocRef(), itinerary.value, { merge: true });
-                    // console.log("行程資料已成功同步到 Firestore!");
+                    await setDoc(getItineraryDocRef(userId.value), itinerary.value, { merge: true });
+                    console.log("行程資料已成功同步到 Firestore!");
                 } catch (e) {
                     console.error("同步行程資料到 Firestore 失敗: ", e);
                 }
             };
 
             // 設置即時監聽器
-            const setupRealtimeListeners = () => {
-                if (!db || !userId.value) return;
+            const setupRealtimeListeners = (uid) => {
+                if (!db || !uid) return;
                 
-                // 1. 行程資料監聽 (單一文件)
-                onSnapshot(getItineraryDocRef(), (docSnapshot) => {
+                const docRef = getItineraryDocRef(uid);
+                
+                onSnapshot(docRef, (docSnapshot) => {
                     if (docSnapshot.exists()) {
                         const data = docSnapshot.data();
                         itinerary.value = data;
+                        
                         // 確保載入後至少有一天的數據，如果沒有，則初始化
                         if (!itinerary.value.days || itinerary.value.days.length === 0) {
                             itinerary.value.days = initializeItineraryData();
+                            saveItineraryData(); // 寫入初始數據
                         }
                     } else {
                         // 如果文件不存在 (第一次使用)，則寫入初始數據
@@ -404,48 +432,52 @@
                         saveItineraryData();
                     }
                 }, (error) => {
-                    console.error("監聽行程資料失敗: ", error);
+                    // 這裡通常會捕捉到 "Permission Denied" 錯誤，這在非認證模式下是預期的
+                    console.error("監聽行程資料失敗 (可能是由於安全規則): ", error);
                 });
-                
-                // 註釋: 花費清單監聽已移除
             };
 
-            // -------------------- 初始化與認證 --------------------
+            // -------------------- 初始化與認證 (已修復) --------------------
             const initFirebaseAndAuth = async () => {
-                // 設置日誌級別為 Debug
                 setLogLevel('Debug');
                 
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("Firebase 配置為空，無法初始化。");
-                    return;
-                }
-
                 try {
                     const app = initializeApp(firebaseConfig);
                     db = getFirestore(app);
-                    auth = getAuth(app);
+                    auth = getAuth(app); // 初始化服務
 
-                    // 嘗試使用自定義 token 登入，如果沒有則匿名登入
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
+                    let currentUid = null;
+                    isTemporaryId.value = false;
+                    
+                    try {
+                        // 嘗試匿名登入
+                        const userCredential = await signInAnonymously(auth);
+                        currentUid = userCredential.user.uid;
+                        console.log("匿名登入成功:", currentUid);
+
+                    } catch (authError) {
+                        // 捕捉到 auth/configuration-not-found 或其他 Auth 錯誤
+                        console.error("Firebase Auth 認證失敗 (進入非認證模式):", authError);
+                        console.warn("應用程式將在非認證模式下運行。Firestore 讀寫可能被安全規則阻止。");
+                        
+                        // Auth 失敗的優雅降級處理：生成一個臨時 ID
+                        currentUid = generateUUID(); 
+                        isTemporaryId.value = true;
                     }
                     
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            userId.value = user.uid; // 設置用戶 ID
-                            isAuthReady.value = true;
-                            setupRealtimeListeners(); // 登入成功後開始監聽
-                        } else {
-                            userId.value = null;
-                            isAuthReady.value = true; // 即使匿名登入失敗，也標記為已檢查
-                            console.log("用戶未登入。");
-                        }
-                    });
+                    // 無論認證成功或失敗，都使用一個 ID
+                    userId.value = currentUid; 
+                    isAuthReady.value = true;
+
+                    // 設置 Firestore 監聽器
+                    if (db) {
+                        setupRealtimeListeners(currentUid);
+                    }
 
                 } catch (error) {
-                    console.error("Firebase 初始化或認證失敗:", error);
+                    // App 初始化失敗 (例如 config 錯誤)
+                    console.error("Firebase App 初始化失敗:", error);
+                    userId.value = null;
                     isAuthReady.value = true;
                 }
             };
@@ -484,7 +516,6 @@
 
             const closeConfirmModal = () => {
                 isConfirmModalOpen.value = false;
-                confirmMessage.value = '';
                 confirmAction.value = null;
             };
 
@@ -515,6 +546,11 @@
 
             const saveItineraryItem = () => {
                 if (!currentDay.value) return;
+                
+                if (isTemporaryId.value) {
+                    // 在非認證模式下允許編輯本地數據，但不寫入 Firestore
+                    console.warn("非認證模式下無法儲存到雲端。");
+                }
 
                 if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
                 
@@ -534,20 +570,18 @@
                     currentDay.value.items.sort((a, b) => a.time.localeCompare(b.time));
                 }
 
-                saveItineraryData(); // 儲存到 Firestore
+                saveItineraryData(); // 嘗試儲存到 Firestore (在非認證模式下會被阻止)
                 isItineraryModalOpen.value = false;
             };
 
             const deleteItineraryItem = () => {
                 if (currentDay.value && editingIndex.value !== null) {
                     currentDay.value.items.splice(editingIndex.value, 1);
-                    saveItineraryData(); // 儲存到 Firestore
+                    saveItineraryData(); // 嘗試儲存到 Firestore
                     isItineraryModalOpen.value = false;
                 }
             };
             
-            // 註釋: 花費 CRUD 邏輯已移除
-
             // -------------------- 初始數據 --------------------
             const initializeItineraryData = () => {
                 // 初始化原始行程數據，已包含模擬交通、分類和天氣
@@ -632,6 +666,7 @@
                 // Firebase 狀態
                 userId,
                 isAuthReady,
+                isTemporaryId, // 暴露新的狀態
                 // 自定義確認 Modal 
                 isConfirmModalOpen,
                 confirmMessage,
