@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>關西跨年豪華行程 (日系極簡風 - Auth Bypass)</title>
-    <!-- 引入 Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Vue.js 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <style>
         /* 定義日系極簡風格的顏色和字體 */
@@ -69,7 +67,6 @@
 <body>
 
 <div id="app" class="min-h-screen">
-    <!-- 應用程式頁首 (Header) - 圓弧銜接 -->
     <header id="app-header" class="text-center pt-12">
         <h1 class="text-3xl font-bold text-sepia-brown">
             關西跨年行程
@@ -78,13 +75,11 @@
             2025.12.27 ~ 2026.01.02
         </p>
 
-        <!-- Firebase 連線狀態與使用者 ID -->
         <div class="mt-4 p-3 mx-auto max-w-sm bg-sepia-brown/10 rounded-xl">
             <p v-if="!isAuthReady" class="text-xs text-sepia-brown font-semibold">
                 連線中... 🌐
             </p>
             <div v-else class="text-xs text-sepia-brown text-left">
-                <!-- 由於已移除認證，我們總是使用非認證狀態的警告 -->
                 <p v-if="firebaseInitialized" class="font-semibold text-orange-700">
                     ⚠️ <span class="text-orange-700">Firestore 連線已啟用 (非認證模式)</span>
                 </p>
@@ -97,16 +92,12 @@
             </div>
         </div>
         
-        <!-- Tab Icon Bar 已移至最下方 -->
-    </header>
+        </header>
 
-    <!-- 主內容區塊 - 向上重疊頁首圓弧 -->
     <main id="main-content" class="max-w-xl mx-auto px-4">
         
-        <!-- -------------------- 每日行程表 (Itinerary) Tab -------------------- -->
         <div v-show="currentTab === 'itinerary'" class="space-y-4">
             
-            <!-- 日期橫向滑動選單 -->
             <div class="overflow-x-scroll hide-scrollbar whitespace-nowrap py-3 sticky top-0 z-30 bg-F8F8F4">
                 <div class="inline-flex space-x-3">
                     <div v-for="day in itineraryDays" :key="day.id" 
@@ -120,9 +111,7 @@
                 </div>
             </div>
 
-            <!-- 當日行程內容 -->
             <div v-if="currentDay">
-                <!-- 天氣資訊 (模擬) -->
                 <div class="bg-white p-4 rounded-xl shadow-lg border border-soft-green mb-4 flex justify-between items-center">
                     <div class="flex items-center space-x-3">
                         <span class="text-3xl" v-html="currentDay.weather.icon"></span>
@@ -134,7 +123,6 @@
                     <p class="text-sm text-sepia-brown font-semibold">{{ currentDay.weather.location }}</p>
                 </div>
 
-                <!-- 分類篩選欄 (Dropdown) -->
                 <div class="mb-4 flex space-x-2">
                     <select v-model="filterCategory" class="p-2 border border-soft-green rounded-lg bg-white text-sm text-primary-text focus:border-sepia-brown focus:ring-sepia-brown transition">
                         <option value="">所有分類</option>
@@ -142,20 +130,16 @@
                     </select>
                 </div>
 
-                <!-- 行程列表 -->
                 <div v-for="(item, index) in filteredItems" :key="item.id" class="mb-4">
                     
-                    <!-- 交通時間顯示 (非第一個行程) -->
                     <div v-if="index > 0 || currentDayId > 1 && index === 0" class="flex items-center justify-center space-x-2 text-sm text-gray-500 my-2">
                          <span v-html="index === 0 ? '🏠' : item.travelModeIcon"></span>
                         <span class="text-sepia-brown font-semibold">{{ index === 0 ? '前日住宿至此' : item.travelTime }}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-soft-green"><line x1="12" y1="5" x2="12" y2="19"/></svg>
                     </div>
                     
-                    <!-- 行程卡片 -->
                     <div class="day-card bg-white p-4 rounded-xl shadow-md border-l-4 border-sepia-brown/50 transition-all duration-300 hover:shadow-lg">
                         
-                        <!-- 卡片頂部: 時間, 名稱, 地圖ICON, 編輯ICON -->
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex-grow">
                                 <span class="font-bold text-base block text-sepia-brown">{{ item.time }}</span>
@@ -163,7 +147,6 @@
                             </div>
 
                             <div class="flex space-x-2">
-                                <!-- Google Maps 按鈕 -->
                                 <a 
                                     v-if="item.mapQuery"
                                     :href="getMapLink(item.mapQuery)"
@@ -171,22 +154,51 @@
                                     class="p-1 rounded-full bg-sepia-brown/10 text-sepia-brown hover:bg-sepia-brown hover:text-white transition duration-150"
                                     title="Google 地圖"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 12H7"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+									<circle cx="12" cy="10" r="3"/>
+									</svg>
                                 </a>
-                                <!-- 編輯按鈕 -->
                                 <button @click="openEditModal(item, index)" class="p-1 rounded-full bg-sepia-brown/10 text-sepia-brown hover:bg-sepia-brown hover:text-white transition duration-150" title="編輯行程">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z"/></svg>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- 航班專屬呈現 -->
-                        <div v-if="item.category === '航班'" class="bg-red-50 p-3 rounded-lg text-sm border-l-4 border-red-400 mt-2">
-                            <p class="font-medium text-red-700">✈️ {{ item.note }}</p>
-                            <p class="text-xs text-red-600">班次: {{ item.transport }}</p>
+                        <div v-if="item.category === '航班'" class="bg-white p-4 rounded-xl border border-gray-100 mt-2 shadow-inner">
+                            
+                            <div class="flex justify-between items-start text-primary-text">
+                                <div class="w-2/5 text-left">
+                                    <p class="text-lg font-bold text-gray-700">{{ item.depCode }}</p> 
+                                    <p class="text-base font-medium mt-1">{{ item.depName }}</p>
+                                </div>
+                                <div class="w-1/5 flex justify-center items-center py-2 text-gray-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20h14M10 5l4 4M10 19v-3l12-3-12-3v-3l-4 3 4 3 4 3L10 19"/></svg>
+                                </div>
+                                <div class="w-2/5 text-right">
+                                    <p class="text-lg font-bold text-gray-700">{{ item.arrCode }}</p>
+                                    <p class="text-base font-medium mt-1">{{ item.arrName }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-end mt-4">
+                                <div class="w-1/2 text-left">
+                                    <p class="text-xs text-gray-500 font-medium">預計:</p>
+                                    <p class="font-extrabold text-5xl text-primary-text leading-none mt-1">{{ item.depTime }}</p>
+                                </div>
+                                <div class="w-1/2 text-right">
+                                    <p class="text-xs text-gray-500 font-medium">預計:</p>
+                                    <p class="font-extrabold text-5xl text-primary-text leading-none mt-1">{{ item.arrTime }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-gray-100">
+                                <p class="text-xs text-red-600 font-medium">航班編號: {{ item.transport }}</p>
+                                <p class="text-xs text-primary-text/70 mt-1">{{ item.note }}</p>
+                            </div>
                         </div>
+
                         
-                        <!-- 一般行程資訊 -->
                         <div v-else class="text-sm space-y-1 mt-2">
                             <p v-if="item.category === '景點' && item.ticketPrice" class="text-gray-600">門票: <span class="font-medium text-sepia-brown">{{ item.ticketPrice }} JPY</span></p>
                             <p class="text-gray-600"><span class="font-medium text-primary-text">分類: {{ item.category }}</span></p>
@@ -196,14 +208,12 @@
                 </div>
             </div>
             
-            <!-- 新增行程按鈕 (浮動的 "+" 按鈕) -->
             <button @click="openAddModal" class="fixed bottom-20 right-6 p-4 rounded-full bg-sepia-brown text-white shadow-2xl transition hover:bg-sepia-brown/80 z-40" title="新增行程">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
 
         </div>
 
-        <!-- -------------------- 匯率換算 (Exchange) Tab -------------------- -->
         <div v-show="currentTab === 'exchange'" class="p-6 bg-white rounded-2xl shadow-xl">
             <h2 class="text-xl font-bold text-sepia-brown mb-4">💵 匯率換算 (JPY $\rightarrow$ HKD)</h2>
             <div class="text-xs text-red-500 mb-4">* 使用固定模擬匯率: 1 JPY = 0.052 HKD</div>
@@ -226,42 +236,60 @@
         </div>
     </main>
 
-    <!-- -------------------- 固定底部的 Tab Icon Bar -------------------- -->
     <div class="fixed inset-x-0 bottom-0 flex justify-center p-4 z-50">
         <div class="flex bg-white rounded-full shadow-2xl p-3 space-x-6 border border-sepia-brown/10">
-            <!-- Tab: 行程表 -->
             <button @click="currentTab = 'itinerary'" :class="tabClass('itinerary')" title="每日行程表">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 15h4M10 19h4"/></svg>
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+			<line x1="16" y1="2" x2="16" y2="6"/>
+			<line x1="8" y1="2" x2="8" y2="6"/>
+			<line x1="3" y1="10" x2="21" y2="10"/>
+			</svg>
             </button>
-            <!-- Tab: 匯率換算 -->
             <button @click="currentTab = 'exchange'" :class="tabClass('exchange')" title="匯率換算">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M12 10V18"/><path d="M8 14h8"/></svg>
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="12" cy="12" r="8"/>
+				<line x1="12" y1="8" x2="12" y2="16"/>
+				<line x1="8" y1="12" x2="16" y2="12"/>
+				<path d="M16 16L19 19L16 22"/>
+				<path d="M8 8L5 5L8 2"/>
+				</svg>
             </button>
         </div>
     </div>
-    <!-- -------------------- End Tab Icon Bar -------------------- -->
-
-    <!-- 底部版權/提示資訊 -->
     <footer class="text-center py-6 text-xs text-primary-text/50">
         <p>行程由 AI 助手生成。資料由 Firebase Firestore 雲端儲存與即時同步。</p>
     </footer>
 
-    <!-- -------------------- Modal 區塊 -------------------- -->
-
-    <!-- 行程新增/編輯彈出視窗 -->
     <div v-if="isItineraryModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl space-y-4">
             <h3 class="text-xl font-bold text-sepia-brown">{{ isEditing ? '編輯行程' : '新增行程' }}</h3>
             <form @submit.prevent="saveItineraryItem" class="space-y-3">
                 
-                <input type="text" v-model="form.name" placeholder="名稱 (必填)" required class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
-                <input type="text" v-model="form.time" placeholder="時間 (例如: 14:00 - 17:00)" required class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                <input type="text" v-model="form.name" placeholder="名稱 (航班除外)" :required="form.category !== '航班'" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                <input type="text" v-model="form.time" placeholder="時間 (例如: 14:00 - 17:00, 航班除外)" :required="form.category !== '航班'" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                 
                 <select v-model="form.category" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                     <option disabled value="">請選擇分類 (必填)</option>
                     <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
                 </select>
-
+                
+                <div v-if="form.category === '航班'" class="space-y-3 pt-2 p-3 bg-soft-green/50 rounded-lg">
+                    <h4 class="text-sm font-bold text-sepia-brown">航班細節 (取代上方名稱/時間)</h4>
+                    <input type="text" v-model="form.transport" placeholder="航班編號 (例如: MM 68)" required class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    <div class="flex space-x-2">
+                        <input type="text" v-model="form.depCode" placeholder="出發機場代碼 (例如: HKG)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                        <input type="text" v-model="form.arrCode" placeholder="抵達機場代碼 (例如: KIX)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" v-model="form.depName" placeholder="出發地中文名 (例如: 香港國際機場)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                        <input type="text" v-model="form.arrName" placeholder="抵達地中文名 (例如: 關西國際機場)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" v-model="form.depTime" placeholder="預計出發時間 (例如: 01:45)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                        <input type="text" v-model="form.arrTime" placeholder="預計抵達時間 (例如: 06:10)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    </div>
+                </div>
                 <div v-if="form.category === '景點'">
                     <input type="number" v-model.number="form.ticketPrice" placeholder="門票價格 (JPY)" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                 </div>
@@ -281,7 +309,6 @@
         </div>
     </div>
     
-    <!-- 自定義確認/刪除彈出視窗 (取代 window.confirm) -->
     <div v-if="isConfirmModalOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl space-y-4 text-center">
             <h3 class="text-xl font-bold text-sepia-brown">確認操作</h3>
@@ -299,7 +326,6 @@
 <script type="module">
     // 引入 Firebase SDK
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    // 這次我們不需要 getAuth, signInAnonymously, signInWithCustomToken
     import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { createApp, ref, computed, onMounted } = Vue;
@@ -307,6 +333,17 @@
     // 輔助函數：生成 UUID
     function generateUUID() {
         return crypto.randomUUID();
+    }
+
+    // 輔助函數：將 OpenWeatherMap 的狀態碼轉換為 emoji
+    function getWeatherEmoji(weatherCode) {
+        if (weatherCode >= 200 && weatherCode < 300) return '⛈️'; // Thunderstorm
+        if (weatherCode >= 300 && weatherCode < 500) return '🌧️'; // Drizzle
+        if (weatherCode >= 500 && weatherCode < 600) return '🌧️'; // Rain
+        if (weatherCode >= 600 && weatherCode < 700) return '❄️'; // Snow
+        if (weatherCode === 800) return '☀️'; // Clear
+        if (weatherCode > 800) return '☁️'; // Clouds
+        return '🌐'; // Default
     }
 
     createApp({
@@ -351,6 +388,24 @@
             const firebaseInitialized = ref(false); // 追蹤 Firebase 是否成功初始化
             // isTemporaryId 在此處始終為 true，因為我們繞過了認證
             const isTemporaryId = ref(true); 
+            
+            // -------------------- OpenWeatherMap 相關配置 --------------------
+            const OPENWEATHERMAP_API_KEY = "fbe62816684902d7d56067b95729927a"; 
+            
+            // 城市與經緯度映射（用於 OpenWeatherMap API 查詢）
+            const CITY_COORDS = {
+                '姬路': { lat: 34.83, lon: 134.69 }, // 姬路
+                '神戶': { lat: 34.69, lon: 135.19 }, // 神戶
+                '大阪': { lat: 34.69, lon: 135.50 }  // 大阪
+            };
+            
+            const TRIP_CITY_MAPPING = {
+                1: '姬路', 2: '姬路', 
+                3: '神戶', 4: '神戶', 
+                5: '大阪', 6: '大阪', 7: '大阪'
+            };
+            // -------------------- OpenWeatherMap 配置結束 --------------------
+
 
             // -------------------- 數據狀態 --------------------
             const currentTab = ref('itinerary');
@@ -367,7 +422,7 @@
             const confirmMessage = ref('');
             const confirmAction = ref(null); 
 
-            // 表單數據
+            // 表單數據 (包含航班新欄位的預設值)
             const form = ref({});
 
             // 數據儲存狀態 (從 Firestore 載入)
@@ -435,6 +490,10 @@
                             itinerary.value.days = initializeItineraryData();
                             saveItineraryData(); // 嘗試寫入初始化資料
                         }
+                        
+                        // 📌 每次資料更新後嘗試獲取天氣
+                        updateWeatherForTrip();
+                        
                     } else {
                         // 文件不存在，寫入初始化資料
                         itinerary.value.days = initializeItineraryData();
@@ -444,6 +503,56 @@
                     console.error("監聽行程資料失敗 (可能是 Firestore 規則阻止了讀取): ", error);
                 });
             };
+
+            // -------------------- OpenWeatherMap 獲取函數 --------------------
+
+            const updateWeatherForTrip = async () => {
+                console.log("嘗試更新 OpenWeatherMap 天氣數據...");
+                const cityWeather = {}; // 暫存每個城市的天氣數據
+
+                // 遍歷所有城市，非同步獲取當前天氣
+                for (const city of Object.keys(CITY_COORDS)) {
+                    try {
+                        const { lat, lon } = CITY_COORDS[city];
+                        // 確保 lang=zh_tw
+                        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}&units=metric&lang=zh_tw`;
+                        
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        
+                        const data = await response.json();
+                        
+                        // 儲存核心天氣資訊
+                        cityWeather[city] = {
+                            icon: getWeatherEmoji(data.weather[0].id),
+                            temp: Math.round(data.main.temp),
+                            feelsLike: Math.round(data.main.feels_like),
+                            // 📌 修改點：強制使用您在 CITY_COORDS 中定義的中文城市名稱
+                            location: city 
+                        };
+                        console.log(`成功獲取 ${city} 天氣。`);
+                    } catch (error) {
+                        console.error(`獲取 ${city} 天氣失敗:`, error);
+                        // 失敗時使用預設/模擬值
+                        cityWeather[city] = { icon: '❓', temp: 'N/A', feelsLike: 'N/A', location: city };
+                    }
+                }
+                
+                // 將獲取到的天氣應用到每天的行程中
+                itinerary.value.days = itinerary.value.days.map(day => {
+                    const city = TRIP_CITY_MAPPING[day.id];
+                    if (city && cityWeather[city]) {
+                        day.weather = cityWeather[city];
+                    } else {
+                        // 如果映射失敗，使用預設值
+                        day.weather = { icon: '❓', temp: 'N/A', feelsLike: 'N/A', location: '未知地區' };
+                    }
+                    return day;
+                });
+                
+                // 由於天氣是即時數據，我們不主動將其寫回 Firestore，只更新本地 UI
+            };
+
 
             // -------------------- 強化初始化邏輯 (移除 Auth) --------------------
             const initFirebaseAndDatabase = async () => {
@@ -492,6 +601,7 @@
                 filterCategory.value = ''; // 切換日期時重置分類
             };
 
+            // 修正 Google Map 連結中的錯誤
             const getMapLink = (query) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 
             const calculateExchange = () => {
@@ -523,13 +633,33 @@
 
             // -------------------- 行程 CRUD --------------------
             const openAddModal = () => {
-                form.value = { id: generateUUID(), name: '', time: '', category: categories[0], note: '', mapQuery: '', ticketPrice: null, travelTime: '30分鐘', travelModeIcon: '🚶' };
+                // 初始化所有欄位，包括新的航班專屬欄位
+                form.value = { 
+                    id: generateUUID(), 
+                    name: '', 
+                    time: '', 
+                    category: categories[0], 
+                    note: '', 
+                    mapQuery: '', 
+                    ticketPrice: null, 
+                    travelTime: '30分鐘', 
+                    travelModeIcon: '🚶',
+                    // 新增航班專屬欄位
+                    transport: '',
+                    depCode: '',
+                    arrCode: '',
+                    depName: '',
+                    arrName: '',
+                    depTime: '',
+                    arrTime: ''
+                };
                 isEditing.value = false;
                 isItineraryModalOpen.value = true;
             };
 
             const openEditModal = (item, index) => {
-                form.value = { ...item }; // 複製當前項目
+                // 使用展開運算符複製所有屬性，包括新的航班屬性
+                form.value = { ...item }; 
                 editingIndex.value = index;
                 isEditing.value = true;
                 isItineraryModalOpen.value = true;
@@ -541,14 +671,24 @@
                 if (!firebaseInitialized.value) {
                     console.warn("Firestore 未連線，新增/編輯操作僅適用於本地。");
                 }
-
-                if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
                 
-                // 模擬交通資訊 (非實時計算)
-                if (!form.value.travelTime || form.value.travelTime === '0分鐘') {
-                    form.value.travelTime = '約 30 分鐘';
-                    form.value.travelModeIcon = form.value.category === '住宿' ? '🚌' : '🚶';
+                // 處理非航班項目的預設值
+                if (form.value.category !== '航班') {
+                    if (form.value.category === '景點' && !form.value.ticketPrice) form.value.ticketPrice = 0;
+                    
+                    if (!form.value.travelTime || form.value.travelTime === '0分鐘') {
+                        form.value.travelTime = '約 30 分鐘';
+                        form.value.travelModeIcon = form.value.category === '住宿' ? '🚌' : '🚶';
+                    }
+                } else {
+                    // 航班項目預設交通資訊
+                    form.value.travelTime = '0分鐘';
+                    form.value.travelModeIcon = '✈️';
+                    // 📌 根據新的欄位設定 name 和 time，以供列表頂部顯示和排序
+                    form.value.name = `${form.value.depCode} → ${form.value.arrCode} (${form.value.transport})`;
+                    form.value.time = `${form.value.depTime} - ${form.value.arrTime}`;
                 }
+
 
                 if (isEditing.value) {
                     // 更新現有項目
@@ -558,7 +698,7 @@
                     currentDay.value.items.push(form.value);
                     // 確保排序後再儲存
                     currentDay.value.items.sort((a, b) => {
-                        // 簡單的時間字串排序
+                        // 簡單的時間字串排序 (time 對於航班也是 depTime - arrTime)
                         return a.time.localeCompare(b.time);
                     });
                 }
@@ -578,53 +718,86 @@
                 }
             };
             
-            // -------------------- 初始數據 --------------------
+            // -------------------- 初始數據 (更新航班數據結構) --------------------
             const initializeItineraryData = () => {
-                // 初始化原始行程數據，已包含模擬交通、分類和天氣
                 return [
-                    { id: 1, date: '2025-12-27', title: '抵達與姬路遊', weather: { icon: '☀️', temp: 10, feelsLike: 8, location: '姬路' }, items: [
-                        { id: generateUUID(), time: '01:45 - 06:10', name: '香港 HKG → KIX (MM 68)', category: '航班', note: '領取行李', mapQuery: '關西國際機場 KIX', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 68' },
+                    { id: 1, date: '2025-12-27', title: '抵達與姬路遊', weather: { location: '姬路' }, items: [
+                        // 📌 航班數據結構更新
+                        { 
+                            id: generateUUID(), 
+                            time: '01:45 - 06:10', 
+                            name: '香港 HKG → KIX (MM 68)', 
+                            category: '航班', 
+                            note: '領取行李', 
+                            mapQuery: '關西國際機場 KIX', 
+                            travelTime: '0分鐘', 
+                            travelModeIcon: '✈️', 
+                            transport: 'MM 68',
+                            depCode: 'HKG',
+                            arrCode: 'KIX',
+                            depName: '香港國際機場',
+                            arrName: '關西國際機場',
+                            depTime: '01:45',
+                            arrTime: '06:10'
+                        },
                         { id: generateUUID(), time: '08:50 - 11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路站', travelTime: '150分鐘', travelModeIcon: '🚌' },
                         { id: generateUUID(), time: '11:10 - 12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: 'Richmond Hotel Himeji', travelTime: '15分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '14:00 - 17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '書寫山圓教寺', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
                         { id: generateUUID(), time: '19:30 onwards', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路站 美食', travelTime: '15分鐘', travelModeIcon: '🚶' },
                     ]},
-                    { id: 2, date: '2025-12-28', title: '姬路深度遊', weather: { icon: '🌤️', temp: 12, feelsLike: 10, location: '姬路' }, items: [
+                    { id: 2, date: '2025-12-28', title: '姬路深度遊', weather: { location: '姬路' }, items: [
                         { id: generateUUID(), time: '09:00 - 12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路城', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '13:30 - 16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '好古園', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '18:30 onwards', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路 美食推薦', travelTime: '15分鐘', travelModeIcon: '🚶' },
                     ]},
-                    { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', weather: { icon: '☁️', temp: 14, feelsLike: 12, location: '神戶' }, items: [
-                        { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 $\rightarrow$ 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶三宮站', travelTime: '70分鐘', travelModeIcon: '🚆' },
+                    { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', weather: { location: '神戶' }, items: [
+                        { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 → 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶三宮站', travelTime: '70分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '12:30 - 14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: 'Steakland Kobe', travelTime: '10分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '14:00 - 19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶三宮中心街', travelTime: '5分鐘', travelModeIcon: '🚶' },
                         { id: generateUUID(), time: '19:00 - 20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶 馬賽克廣場', travelTime: '20分鐘', travelModeIcon: '🚌' },
                     ]},
-                    { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', weather: { icon: '🌨️', temp: 5, feelsLike: 3, location: '六甲山' }, items: [
-                        { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 $\rightarrow$ 六甲山頂', category: '交通', note: 'JR $\rightarrow$ 巴士 $\rightarrow$ 纜車', mapQuery: '六甲山頂', travelTime: '90分鐘', travelModeIcon: '🚌' },
-                        { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 $\rightarrow$ 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '有馬溫泉', travelTime: '30分鐘', travelModeIcon: '🚠' },
+                    { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', weather: { location: '神戶' }, items: [
+                        { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 → 六甲山頂', category: '交通', note: 'JR → 巴士 → 纜車', mapQuery: '六甲山頂', travelTime: '90分鐘', travelModeIcon: '🚌' },
+                        { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 → 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '有馬溫泉', travelTime: '30分鐘', travelModeIcon: '🚠' },
                         { id: generateUUID(), time: '14:00 - 17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '有馬溫泉 金之湯', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
                         { id: generateUUID(), time: '17:30 - 19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶三宮站', travelTime: '60分鐘', travelModeIcon: '🚌' },
                     ]},
-                    { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', weather: { icon: '🎆', temp: 10, feelsLike: 9, location: '大阪' }, items: [
-                        { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 $\rightarrow$ 淀屋橋', category: '交通', note: '阪神 $\rightarrow$ 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                    { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', weather: { location: '大阪' }, items: [
+                        { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 → 淀屋橋', category: '交通', note: '阪神 → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 $\rightarrow$ 環球城', category: '交通', note: '地鐵 $\rightarrow$ JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 → 環球城', category: '交通', note: '地鐵 → JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '日本環球影城', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
                     ]},
-                    { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', weather: { icon: '🌤️', temp: 10, feelsLike: 8, location: '大阪' }, items: [
+                    { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', weather: { location: '大阪' }, items: [
                         { id: generateUUID(), time: '02:00 - 06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '超級任天堂世界', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
-                        { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR $\rightarrow$ 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '45分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '10:00 - 16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '淀屋橋京阪飯店', travelTime: '0分鐘', travelModeIcon: '🛌' },
                         { id: generateUUID(), time: '16:00 - 18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '中之島公園', travelTime: '15分鐘', travelModeIcon: '🚶' },
                     ]},
-                    { id: 7, date: '2026-01-02', title: '觀光與返程日', weather: { icon: '☁️', temp: 13, feelsLike: 11, location: '大阪' }, items: [
+                    { id: 7, date: '2026-01-02', title: '觀光與返程日', weather: { location: '大阪' }, items: [
                         { id: generateUUID(), time: '09:30 - 12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪海遊館', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
-                        { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 $\rightarrow$ 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '臨空城 Premium Outlet', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                        { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 → 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '臨空城 Premium Outlet', travelTime: '60分鐘', travelModeIcon: '🚆' },
                         { id: generateUUID(), time: '14:30 - 18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '臨空城 Premium Outlet', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                        { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 $\rightarrow$ KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '關西國際機場 KIX', travelTime: '5分鐘', travelModeIcon: '🚆' },
-                        { id: generateUUID(), time: '21:05', name: 'KIX $\rightarrow$ 香港 HKG (MM 67)', category: '航班', note: '預留充足時間辦理手續', mapQuery: '關西國際機場 KIX', travelTime: '0分鐘', travelModeIcon: '✈️', transport: 'MM 67' },
+                        { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 → KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '關西國際機場 KIX', travelTime: '5分鐘', travelModeIcon: '🚆' },
+                        // 📌 航班數據結構更新
+                        { 
+                            id: generateUUID(), 
+                            time: '21:05 - 23:35', 
+                            name: 'KIX → 香港 HKG (MM 67)', 
+                            category: '航班', 
+                            note: '預留充足時間辦理手續', 
+                            mapQuery: '關西國際機場 KIX', 
+                            travelTime: '0分鐘', 
+                            travelModeIcon: '✈️', 
+                            transport: 'MM 67',
+                            depCode: 'KIX',
+                            arrCode: 'HKG',
+                            depName: '關西國際機場',
+                            arrName: '香港國際機場',
+                            depTime: '21:05',
+                            arrTime: '23:35'
+                        },
                     ]}
                 ];
             };
@@ -634,6 +807,11 @@
                 // 呼叫初始化函數
                 initFirebaseAndDatabase(); 
                 calculateExchange(); 
+                // 📌 在初始化後嘗試獲取並應用天氣數據
+                if (itinerary.value.days.length === 0) {
+                    itinerary.value.days = initializeItineraryData();
+                    updateWeatherForTrip();
+                }
             });
 
             return {
