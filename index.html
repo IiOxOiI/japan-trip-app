@@ -183,11 +183,11 @@
                             
                             <div class="flex justify-between items-end mt-4">
                                 <div class="w-1/2 text-left">
-                                    <p class="text-xs text-gray-500 font-medium">預計:</p>
+                                    <p class="text-xs text-gray-500 font-medium">預計出發:</p>
                                     <p class="font-extrabold text-5xl text-primary-text leading-none mt-1">{{ item.depTime }}</p>
                                 </div>
                                 <div class="w-1/2 text-right">
-                                    <p class="text-xs text-gray-500 font-medium">預計:</p>
+                                    <p class="text-xs text-gray-500 font-medium">預計抵達:</p>
                                     <p class="font-extrabold text-5xl text-primary-text leading-none mt-1">{{ item.arrTime }}</p>
                                 </div>
                             </div>
@@ -322,8 +322,15 @@
             <form @submit.prevent="saveItineraryItem" class="space-y-3">
                 
                 <input type="text" v-model="itineraryForm.name" placeholder="名稱 (航班除外)" :required="itineraryForm.category !== '航班'" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
-                <input type="text" v-model="itineraryForm.time" placeholder="時間 (例如: 14:00 - 17:00, 航班除外)" :required="itineraryForm.category !== '航班'" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                 
+                <div class="flex space-x-3">
+                    <input type="time" v-model="itineraryForm.startTime" placeholder="開始時間 (必填, 24小時制)" 
+                           :required="itineraryForm.category !== '航班'" 
+                           class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                    <input type="time" v-model="itineraryForm.endTime" placeholder="結束時間 (選填, 24小時制)" 
+                           class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                </div>
+				
                 <select v-model="itineraryForm.category" class="w-full p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                     <option disabled value="">請選擇分類 (必填)</option>
                     <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
@@ -341,8 +348,8 @@
                         <input type="text" v-model="itineraryForm.arrName" placeholder="抵達地中文名 (例如: 關西國際機場)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                     </div>
                     <div class="flex space-x-2">
-                        <input type="text" v-model="itineraryForm.depTime" placeholder="預計出發時間 (例如: 01:45)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
-                        <input type="text" v-model="itineraryForm.arrTime" placeholder="預計抵達時間 (例如: 06:10)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                        <input type="time" v-model="itineraryForm.depTime" placeholder="預計出發時間 (例如: 01:45)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
+                        <input type="time" v-model="itineraryForm.arrTime" placeholder="預計抵達時間 (例如: 06:10)" required class="w-1/2 p-3 border border-soft-green rounded-lg focus:border-sepia-brown">
                     </div>
                 </div>
                 <div v-if="itineraryForm.category === '景點'">
@@ -478,6 +485,7 @@
             const confirmAction = ref(null); 
 
             // 📌 行程表單數據 (從 form.value 變更名稱為 itineraryForm)
+			// 新增 startTime 和 endTime							   
             const itineraryForm = ref({});
             
             // 📌 購物清單表單數據 (新的變數)
@@ -552,7 +560,9 @@
                         
                         // 確保資料結構完整 (如果 Firestore 文件還不存在)
                         if (itinerary.value.days.length === 0) {
-                            itinerary.value = initializeItineraryData();
+                            const initialData = initializeItineraryData();
+                            itinerary.value.days = initialData.days;
+                            itinerary.value.shoppingList = initialData.shoppingList;
                             saveItineraryData(); // 嘗試寫入初始化資料
                         }
                         
@@ -561,7 +571,10 @@
                         
                     } else {
                         // 文件不存在，寫入初始化資料
-                        itinerary.value = initializeItineraryData();
+						// 文件不存在，寫入初始化資料
+                        const initialData = initializeItineraryData();
+                        itinerary.value.days = initialData.days;
+                        itinerary.value.shoppingList = initialData.shoppingList;
                         saveItineraryData();
                     }
                 }, (error) => {
@@ -733,11 +746,14 @@
             
             // -------------------- 行程 CRUD --------------------
             const openAddModal = () => {
-                // 初始化所有欄位，包括新的航班專屬欄位
+                // 初始化所有欄位，包括新的 startTime/endTime
                 itineraryForm.value = { 
                     id: generateUUID(), 
                     name: '', 
                     time: '', 
+                    // 📌 新增 startTime / endTime
+                    startTime: '', 
+                    endTime: '',
                     category: categories[0], 
                     note: '', 
                     mapQuery: '', 
@@ -749,7 +765,7 @@
                     depCode: '',
                     arrCode: '',
                     depName: '',
-                    isEditing: false, // 確保每次新增都是 false
+                    isEditing: false, 
                     arrName: '',
                     depTime: '',
                     arrTime: ''
@@ -775,6 +791,17 @@
                 
                 // 處理非航班項目的預設值
                 if (itineraryForm.value.category !== '航班') {
+					const start = itineraryForm.value.startTime;
+                    const end = itineraryForm.value.endTime;
+                    
+                    // 確保 startTime 是必填的，並根據 endTime 構建 time 顯示字串
+                    if (start) {
+                        itineraryForm.value.time = end ? `${start} - ${end}` : start;
+                    } else {
+                        // 理論上 HTML input:required 會阻止此處發生，但以防萬一
+                        console.error("非航班行程缺少開始時間 (startTime)。");
+                        return;
+                    }														
                     if (itineraryForm.value.category === '景點' && !itineraryForm.value.ticketPrice) itineraryForm.value.ticketPrice = 0;
                     
                     if (!itineraryForm.value.travelTime || itineraryForm.value.travelTime === '0分鐘') {
@@ -788,6 +815,9 @@
                     // 根據新的欄位設定 name 和 time，以供列表頂部顯示和排序
                     itineraryForm.value.name = `${itineraryForm.value.depCode} → ${itineraryForm.value.arrCode} (${itineraryForm.value.transport})`;
                     itineraryForm.value.time = `${itineraryForm.value.depTime} - ${itineraryForm.value.arrTime}`;
+					 // 📌 航班也應設定 startTime/endTime 以便排序邏輯統一處理
+                    itineraryForm.value.startTime = itineraryForm.value.depTime;
+                    itineraryForm.value.endTime = itineraryForm.value.arrTime;		
                 }
 
 
@@ -797,12 +827,13 @@
                 } else {
                     // 新增項目
                     currentDay.value.items.push(itineraryForm.value);
-                    // 確保排序後再儲存
-                    currentDay.value.items.sort((a, b) => {
-                        // 簡單的時間字串排序 (time 對於航班也是 depTime - arrTime)
-                        return a.time.localeCompare(b.time);
-                    });
                 }
+                // 📌 核心修改：使用 startTime 進行排序
+                currentDay.value.items.sort((a, b) => {
+                    // 使用 localeCompare 比較 24 小時制時間字串，這是最穩定的方式
+                    // 由於我們在上方邏輯中確保了 startTime 存在，此處可以直接比較
+                    return a.startTime.localeCompare(b.startTime);
+                });
 
                 saveItineraryData(); // 嘗試儲存到 Firestore
                 isItineraryModalOpen.value = false;
@@ -834,7 +865,9 @@
                             { 
                                 id: generateUUID(), 
                                 time: '01:45 - 06:10', 
-                                name: 'HKG → KIX', 
+                                startTime: '01:45', // 📌 新增
+                                endTime: '06:10',   // 📌 新增
+                                name: '香港 HKG → KIX (MM 68)', 
                                 category: '航班', 
                                 note: '領取行李', 
                                 mapQuery: '關西國際機場 KIX', 
@@ -848,50 +881,52 @@
                                 depTime: '01:45',
                                 arrTime: '06:10'
                             },
-                            { id: generateUUID(), time: '08:50 - 11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路站', travelTime: '150分鐘', travelModeIcon: '🚌' },
-                            { id: generateUUID(), time: '11:10 - 12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: 'Richmond Hotel Himeji', travelTime: '15分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '14:00 - 17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '書寫山圓教寺', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
-                            { id: generateUUID(), time: '19:30 onwards', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路站 美食', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '08:50 - 11:10', startTime: '08:50', endTime: '11:10', name: 'KIX → 姬路站', category: '交通', note: 'KIX T1 6 號乘車處', mapQuery: '姬路站', travelTime: '150分鐘', travelModeIcon: '🚌' },
+                            { id: generateUUID(), time: '11:10 - 12:00', startTime: '11:10', endTime: '12:00', name: 'Richmond Hotel Himeji', category: '住宿', note: '辦理入住/寄放行李', mapQuery: 'Richmond Hotel Himeji', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '14:00 - 17:00', startTime: '14:00', endTime: '17:00', name: '書寫山圓教寺 遊覽', category: '景點', note: '預留 3 小時', mapQuery: '書寫山圓教寺', ticketPrice: 500, travelTime: '60分鐘', travelModeIcon: '🚌' },
+                            { id: generateUUID(), time: '19:30', startTime: '19:30', endTime: '', name: '晚餐', category: '美食', note: '可在姬路站周邊尋找', mapQuery: '姬路站 美食', travelTime: '15分鐘', travelModeIcon: '🚶' },
                         ]},
                         { id: 2, date: '2025-12-28', title: '姬路深度遊', weather: { location: '姬路' }, items: [
-                            { id: generateUUID(), time: '09:00 - 12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路城', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '13:30 - 16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '好古園', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '18:30 onwards', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路 美食推薦', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '09:00 - 12:00', startTime: '09:00', endTime: '12:00', name: '姬路城', category: '景點', note: '世界文化遺產，建議開園時入場', mapQuery: '姬路城', ticketPrice: 1000, travelTime: '10分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '13:30 - 16:00', startTime: '13:30', endTime: '16:00', name: '好古園', category: '景點', note: '日式庭園，建議購買聯票', mapQuery: '好古園', ticketPrice: 300, travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '18:30', startTime: '18:30', endTime: '', name: '晚餐', category: '美食', note: '續住 Richmond Hotel Himeji', mapQuery: '姬路 美食推薦', travelTime: '15分鐘', travelModeIcon: '🚶' },
                         ]},
                         { id: 3, date: '2025-12-29', title: '神戶購物與娛樂日', weather: { location: '神戶' }, items: [
-                            { id: generateUUID(), time: '09:30 - 10:35', name: '姬路 → 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶三宮站', travelTime: '70分鐘', travelModeIcon: '🚆' },
-                            { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '12:30 - 14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: 'Steakland Kobe', travelTime: '10分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '14:00 - 19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶三宮中心街', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '19:00 - 20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶 馬賽克廣場', travelTime: '20分鐘', travelModeIcon: '🚌' },
+                            { id: generateUUID(), time: '09:30 - 10:35', startTime: '09:30', endTime: '10:35', name: '姬路 → 神戶三宮', category: '交通', note: '山陽直通特急', mapQuery: '神戶三宮站', travelTime: '70分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '10:35 - 11:00', startTime: '10:35', endTime: '11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '12:30 - 14:00', startTime: '12:30', endTime: '14:00', name: 'Steakland 神戶牛午餐', category: '美食', note: '務必提前預約', mapQuery: 'Steakland Kobe', travelTime: '10分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '14:00 - 19:00', startTime: '14:00', endTime: '19:00', name: '購物與夾公仔', category: '購物', note: '三宮中心街 & GiGO/Taito Station', mapQuery: '神戶三宮中心街', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '19:00 - 20:30', startTime: '19:00', endTime: '20:30', name: 'MOSAIC 廣場晚餐', category: '美食', note: '欣賞夜景', mapQuery: '神戶 馬賽克廣場', travelTime: '20分鐘', travelModeIcon: '🚌' },
                         ]},
                         { id: 4, date: '2025-12-30', title: '六甲山與有馬溫泉', weather: { location: '神戶' }, items: [
-                            { id: generateUUID(), time: '09:00 - 11:00', name: '三宮 → 六甲山頂', category: '交通', note: 'JR → 巴士 → 纜車', mapQuery: '六甲山頂', travelTime: '90分鐘', travelModeIcon: '🚌' },
-                            { id: generateUUID(), time: '13:00 - 14:00', name: '六甲山 → 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '有馬溫泉', travelTime: '30分鐘', travelModeIcon: '🚠' },
-                            { id: generateUUID(), time: '14:00 - 17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '有馬溫泉 金之湯', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
-                            { id: generateUUID(), time: '17:30 - 19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶三宮站', travelTime: '60分鐘', travelModeIcon: '🚌' },
+                            { id: generateUUID(), time: '09:00 - 11:00', startTime: '09:00', endTime: '11:00', name: '三宮 → 六甲山頂', category: '交通', note: 'JR → 巴士 → 纜車', mapQuery: '六甲山頂', travelTime: '90分鐘', travelModeIcon: '🚌' },
+                            { id: generateUUID(), time: '13:00 - 14:00', startTime: '13:00', endTime: '14:00', name: '六甲山 → 有馬溫泉', category: '交通', note: '六甲有馬纜車', mapQuery: '有馬溫泉', travelTime: '30分鐘', travelModeIcon: '🚠' },
+                            { id: generateUUID(), time: '14:00 - 17:30', startTime: '14:00', endTime: '17:30', name: '有馬溫泉 體驗', category: '景點', note: '體驗金/銀之湯', mapQuery: '有馬溫泉 金之湯', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 850 },
+                            { id: generateUUID(), time: '17:30 - 19:00', startTime: '17:30', endTime: '19:00', name: '返回神戶三宮', category: '交通', note: '巴士或神戶電鐵', mapQuery: '神戶三宮站', travelTime: '60分鐘', travelModeIcon: '🚌' },
                         ]},
                         { id: 5, date: '2025-12-31', title: '大阪 USJ 跨年派對', weather: { location: '大阪' }, items: [
-                            { id: generateUUID(), time: '09:30 - 10:35', name: '神戶 → 淀屋橋', category: '交通', note: '阪神 → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
-                            { id: generateUUID(), time: '10:35 - 11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '12:30 - 14:00', name: '淀屋橋 → 環球城', category: '交通', note: '地鐵 → JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
-                            { id: generateUUID(), time: '17:00 - 00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '日本環球影城', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '09:30 - 10:35', startTime: '09:30', endTime: '10:35', name: '神戶 → 淀屋橋', category: '交通', note: '阪神 → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '10:35 - 11:00', startTime: '10:35', endTime: '11:00', name: 'BRENZA HOTEL', category: '住宿', note: '寄放行李', mapQuery: 'BRENZA HOTEL', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '12:30 - 14:00', startTime: '12:30', endTime: '14:00', name: '淀屋橋 → 環球城', category: '交通', note: '地鐵 → JR', mapQuery: '環球城站', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '17:00 - 00:30', startTime: '17:00', endTime: '00:30', name: 'USJ 跨年派對', category: '景點', note: '立即抽選瑪利歐區整理券！', mapQuery: '日本環球影城', ticketPrice: 9800, travelTime: '5分鐘', travelModeIcon: '🚶' },
                         ]},
                         { id: 6, date: '2026-01-01', title: 'USJ 續攤與休整日', weather: { location: '大阪' }, items: [
-                            { id: generateUUID(), time: '02:00 - 06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '超級任天堂世界', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
-                            { id: generateUUID(), time: '09:00 - 10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '45分鐘', travelModeIcon: '🚆' },
-                            { id: generateUUID(), time: '10:00 - 16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '淀屋橋京阪飯店', travelTime: '0分鐘', travelModeIcon: '🛌' },
-                            { id: generateUUID(), time: '16:00 - 18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '中之島公園', travelTime: '15分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '02:00 - 06:00', startTime: '02:00', endTime: '06:00', name: 'SNW 瑪利歐區', category: '景點', note: '黃金時段，人潮最少', mapQuery: '超級任天堂世界', travelTime: '5分鐘', travelModeIcon: '🚶', ticketPrice: 0 },
+                            { id: generateUUID(), time: '09:00 - 10:00', startTime: '09:00', endTime: '10:00', name: '返回淀屋橋飯店', category: '交通', note: 'JR → 地鐵', mapQuery: '淀屋橋京阪飯店', travelTime: '45分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '10:00 - 16:00', startTime: '10:00', endTime: '16:00', name: '長距離休息與補眠', category: '住宿', note: '恢復體力', mapQuery: '淀屋橋京阪飯店', travelTime: '0分鐘', travelModeIcon: '🛌' },
+                            { id: generateUUID(), time: '16:00 - 18:00', startTime: '16:00', endTime: '18:00', name: '中之島 輕鬆散步', category: '其他', note: '飯店周邊步行可達', mapQuery: '中之島公園', travelTime: '15分鐘', travelModeIcon: '🚶' },
                         ]},
                         { id: 7, date: '2026-01-02', title: '觀光與返程日', weather: { location: '大阪' }, items: [
-                            { id: generateUUID(), time: '09:30 - 12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪海遊館', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
-                            { id: generateUUID(), time: '13:30 - 14:30', name: '海遊館 → 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '臨空城 Premium Outlet', travelTime: '60分鐘', travelModeIcon: '🚆' },
-                            { id: generateUUID(), time: '14:30 - 18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '臨空城 Premium Outlet', travelTime: '5分鐘', travelModeIcon: '🚶' },
-                            { id: generateUUID(), time: '18:00 - 18:30', name: '臨空城 → KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '關西國際機場 KIX', travelTime: '5分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '09:30 - 12:30', startTime: '09:30', endTime: '12:30', name: '大阪海遊館參觀', category: '景點', note: '搭乘地鐵', mapQuery: '大阪海遊館', ticketPrice: 2700, travelTime: '30分鐘', travelModeIcon: '🚇' },
+                            { id: generateUUID(), time: '13:30 - 14:30', startTime: '13:30', endTime: '14:30', name: '海遊館 → 臨空城', category: '交通', note: 'JR/南海電鐵', mapQuery: '臨空城 Premium Outlet', travelTime: '60分鐘', travelModeIcon: '🚆' },
+                            { id: generateUUID(), time: '14:30 - 18:00', startTime: '14:30', endTime: '18:00', name: '臨空城 Outlet 購物', category: '購物', note: '返程前最後血拼', mapQuery: '臨空城 Premium Outlet', travelTime: '5分鐘', travelModeIcon: '🚶' },
+                            { id: generateUUID(), time: '18:00 - 18:30', startTime: '18:00', endTime: '18:30', name: '臨空城 → KIX', category: '交通', note: '車程 5 分鐘', mapQuery: '關西國際機場 KIX', travelTime: '5分鐘', travelModeIcon: '🚆' },
                             // 航班數據結構
                             { 
                                 id: generateUUID(), 
                                 time: '21:05 - 23:35', 
+								startTime: '21:05', // 📌 新增
+                                endTime: '23:35',   // 📌 新增
                                 name: 'KIX → 香港 HKG (MM 67)', 
                                 category: '航班', 
                                 note: '預留充足時間辦理手續', 
